@@ -1,4 +1,4 @@
-// app/api/categories/[id]/route.ts
+// app/api/categories/[id]/route.ts    
 import { NextRequest, NextResponse } from "next/server";
 import { connectToDatabase } from "@/lib/db/db";
 import Category from "@/lib/models/categories/category";
