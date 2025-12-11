@@ -29,15 +29,33 @@ export async function GET() {
                 from: 'users',
                 localField: 'reviews.userId',
                 foreignField: '_id',
-                as: 'populatedUsers' // <--- FIX 1: Rename to a top-level field for easy access
+                as: 'populatedUsers'
             }
         },
-        // 4. Project/Clean up the final shape and remove the temporary fields
+        
+        // 4. NEW: Calculate Total Stock and Sold Out Status
+        {
+            $addFields: {
+                totalStock: {
+                    $sum: "$sizes.quantity" // Sums the 'quantity' field across all elements in the 'sizes' array
+                }
+            }
+        },
+        {
+            $addFields: {
+                // If totalStock is 0, isSoldOut is true
+                isSoldOut: { $eq: ["$totalStock", 0] }
+            }
+        },
+
+        // 5. Project/Clean up the final shape and remove the temporary fields (Was Stage 4, now 5)
         {
             $project: {
                 // Include all desired product fields
                 title: 1, description: 1, images: 1, video: 1, price: 1, category: 1,
                 badges: 1, sizes: 1, priority: 1, createdAt: 1, updatedAt: 1,
+                increment: 1, // <-- Include new increment field
+                isSoldOut: 1, // <-- Include the calculated sold-out status
                 
                 // Reconstruct the reviews array
                 reviews: {
@@ -54,8 +72,8 @@ export async function GET() {
                             // Attach populated user data (simplified for structure)
                             user: {
                                 $arrayElemAt: [
-                                    "$populatedUsers", // <--- FIX 2: Use the new top-level field
-                                    { $indexOfArray: ["$populatedUsers._id", "$$review.userId"] } // <--- FIX 3: Reference the new field
+                                    "$populatedUsers",
+                                    { $indexOfArray: ["$populatedUsers._id", "$$review.userId"] }
                                 ]
                             }
                         }
@@ -63,12 +81,12 @@ export async function GET() {
                 }
             }
         },
-        // 5. Final cleanup to select only necessary fields from the user
+        // 6. Final cleanup to select only necessary fields from the user (Was Stage 5, now 6)
         {
              $project: {
                 // All desired product fields are included
                 title: 1, description: 1, images: 1, video: 1, price: 1, category: 1,
-                badges: 1, sizes: 1, priority: 1, createdAt: 1, updatedAt: 1,
+                badges: 1, sizes: 1, priority: 1, createdAt: 1, updatedAt: 1, increment: 1, isSoldOut: 1,
                 reviews: {
                     $map: {
                         input: "$reviews",
@@ -81,7 +99,7 @@ export async function GET() {
                             createdAt: "$$review.createdAt",
                             updatedAt: "$$review.updatedAt",
                             user: {
-                                // Extract specific fields from the user object reconstructed in Stage 4
+                                // Extract specific fields from the user object reconstructed in Stage 5
                                 fullName: "$$review.user.fullName",
                                 profileImage: "$$review.user.profileImage",
                             }

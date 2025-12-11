@@ -1,10 +1,18 @@
-// lib/models/products/productSchema.ts 
+// lib/models/products/product.ts 
 import { Document, Types, Schema, model, models } from "mongoose";
 
-// --- Size Interfaces (No Change) ---
+// --- 1. NEW: AddOn Interface ---
+export interface iAddOn {
+    _id?: Types.ObjectId; // MongoDB will generate this
+    detail: string;
+    priceAdjustment: number; // e.g., 10 for a $10 increase, or 0
+}
+
+// --- 2. MODIFIED: Size Interface (now includes addOns) ---
 export interface iProductSize {
   name: string;
   quantity: number;
+  addOns: iAddOn[]; // <-- NEW FIELD
 }
 
 // --- Badge Interfaces (No Change) ---
@@ -27,24 +35,34 @@ export interface iReview {
   updatedAt?: Date;
 }
 
-// Product interface (Updated)
+// --- 3. MODIFIED: Product Interface (FIXED: Renamed increment to cartLimit) ---
 export interface iProduct extends Document {
   _id: Types.ObjectId;
   title: string;
   description: string;
   images: { url: string; fileId: string }[];
-  // --- NEW FIELD: Video ---
-  video?: { url: string; fileId: string } | null; 
-  // -------------------------
+  video?: { url: string; fileId: string } | null; 
   price: number;
   category?: Types.ObjectId | null;
   reviews: iReview[];
-  badges: iBadges; 
+  badges?: iBadges; 
   sizes: iProductSize[]; 
-  priority: number | null;
+  priority?: number | null;
+  // --- FIXED FIELD: Renamed to cartLimit ---
+  cartLimit: number; // <-- FIXED: Was 'increment'
+  // ----------------------------------
   createdAt?: Date;
   updatedAt?: Date;
 }
+
+// --- 4. NEW: AddOn Schema (No Change) ---
+export const AddOnSchema = new Schema<iAddOn>(
+    {
+        detail: { type: String, required: true, trim: true },
+        priceAdjustment: { type: Number, required: true, default: 0, min: 0 },
+    },
+    { _id: true } 
+);
 
 // Review schema (No Change)
 export const ReviewSchema = new Schema<iReview>(
@@ -56,13 +74,26 @@ export const ReviewSchema = new Schema<iReview>(
   { timestamps: true, _id: true }
 );
 
+// --- 5. MODIFIED: Default Sizes (No Change) ---
 const defaultSizes: iProductSize[] = [
-    { name: 'XS', quantity: 0 },
-    { name: 'S', quantity: 0 },
-    { name: 'M', quantity: 0 },
-    { name: 'L', quantity:  0 },
-    { name: 'XL', quantity: 0 },
+    { name: 'XS', quantity: 0, addOns: [] }, 
+    { name: 'S', quantity: 0, addOns: [] }, 
+    { name: 'M', quantity: 0, addOns: [] }, 
+    { name: 'L', quantity:  0, addOns: [] }, 
+    { name: 'XL', quantity: 0, addOns: [] }, 
 ];
+
+// --- 6. MODIFIED: Product Size Schema (No Change) ---
+export const ProductSizeSchema = new Schema(
+    {
+        name: { type: String, required: true, enum: ['XS', 'S', 'M', 'L', 'XL'] },
+        quantity: { type: Number, required: true, default: 0, min: 0 }, 
+        addOns: { 
+            type: [AddOnSchema],
+            default: [],
+        }
+    }
+);
 
 // Product schema (Updated)
 const ProductSchema = new Schema<iProduct>(
@@ -74,17 +105,14 @@ const ProductSchema = new Schema<iProduct>(
         { url: { type: String, required: true }, fileId: { type: String, required: true } }
       ],
       validate: {
-        // --- MODIFIED: Max images from 4 to 12 ---
         validator: (val: { url: string; fileId: string }[]) => val.length >= 1 && val.length <= 12,
         message: "You must add between 1 and 12 images",
       },
     },
-    // --- NEW FIELD: Video (Optional) ---
-    video: {
-        type: { url: { type: String, required: true }, fileId: { type: String, required: true } },
-        default: null, // Video is optional
-    },
-    // ------------------------------------
+    video: {
+        type: { url: { type: String, required: true }, fileId: { type: String, required: true } },
+        default: null, 
+    },
     price: { type: Number, required: true, min: 0 },
     category: { type: Schema.Types.ObjectId, ref: "Category", default: null },
     reviews: { type: [ReviewSchema], default: [] },
@@ -103,14 +131,9 @@ const ProductSchema = new Schema<iProduct>(
           saveRs: { active: false, amount: 0 } 
       }),
     },
+    // --- Use the defined ProductSizeSchema ---
     sizes: {
-        type: [
-            {
-                name: { type: String, required: true, enum: ['XS', 'S', 'M', 'L', 'XL'] },
-                // --- MODIFIED: min quantity is now 0 (to allow sold-out state) ---
-                quantity: { type: Number, required: true, default: 0, min: 0 }, 
-            }
-        ],
+        type: [ProductSizeSchema], 
         required: true,
         default: defaultSizes, 
         validate: {
@@ -125,6 +148,14 @@ const ProductSchema = new Schema<iProduct>(
       max: 999,
       index: true,
     },
+    // --- 7. NEW FIELD: FIXED (Renamed to cartLimit) ---
+    cartLimit: { // <-- FIXED: Was 'increment'
+      type: Number,
+      default: 10, 
+      min: 1,
+      required: true,
+    },
+    // ------------------------------------
   },
   { timestamps: true }
 );

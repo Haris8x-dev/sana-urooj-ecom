@@ -1,7 +1,9 @@
+// app/api/products/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { connectToDatabase } from "@/lib/db/db";
-import Product, { iProductSize } from "@/lib/models/products/product";
-import { imagekit } from "@/lib/service/imagekit";
+// We need to import the full type to ensure addOns structure is correct
+import Product, { iProductSize, iAddOn } from "@/lib/models/products/product"; 
+import { imagekit } from "@/lib/service/imagekit"; // Assume imagekit is available
 
 // Define max limits
 const MAX_IMAGES = 12;
@@ -19,38 +21,48 @@ export async function POST(req: NextRequest) {
     const sizesStr = form.get("sizes") as string | null; 
     const priorityStr = form.get("priority") as string | null; 
     
-    // --- NEW: Get media files ---
+    // --- 1. FIXED: Get cartLimit value instead of increment ---
+    const cartLimitStr = form.get("cartLimit") as string | null;
+    // -------------------------------------------------------------
+    
     const imageFiles = form.getAll("images") as File[];
-    const videoFile = form.get(VIDEO_FIELD_NAME) as File | null; // Single video file or null
-    // ----------------------------
-    
+    const videoFile = form.get(VIDEO_FIELD_NAME) as File | null;
+    
     const category = form.get("category") as string | null;
 
-    // --- 1. Basic Validation ---
-    if (!title || !description || isNaN(price) || price <= 0 || !sizesStr) {
+    // --- 2. Basic Validation (Now checking cartLimitStr) ---
+    if (!title || !description || isNaN(price) || price <= 0 || !sizesStr || !cartLimitStr) {
       return NextResponse.json(
-        { error: "Title, description, price, and sizes are required fields." },
+        { error: "Title, description, price, sizes, and cartLimit are required fields." },
         { status: 400 }
       );
     }
 
-    // --- 2. Image Validation (Min 1, Max 12) ---
+    // --- 3. FIXED: Parse and Validate cartLimit ---
+    let cartLimit = parseInt(cartLimitStr);
+    if (isNaN(cartLimit) || cartLimit < 1) {
+        return NextResponse.json(
+            { error: "Invalid cartLimit value. Must be a number >= 1." },
+            { status: 400 }
+        );
+    }
+
+    // --- 4. Image/Video Validation (Unchanged) ---
     if (imageFiles.length < MIN_IMAGES || imageFiles.length > MAX_IMAGES) {
       return NextResponse.json(
         { error: `You must upload between ${MIN_IMAGES} and ${MAX_IMAGES} images.` },
         { status: 400 }
       );
     }
-    
-    // --- 3. Video Validation (Max 1) ---
-    if (videoFile && videoFile.size === 0) { // Check if file is provided but empty
-         return NextResponse.json(
+    
+    if (videoFile && videoFile.size === 0) {
+         return NextResponse.json(
             { error: "Provided video file is empty." },
             { status: 400 }
         );
-    }
+    }
 
-    // --- 4. Parse and Validate Sizes (Quantity check added) ---
+    // --- 5. MODIFIED: Parse and Validate Sizes (Handles nested addOns) (Unchanged) ---
     let sizes: iProductSize[] = [];
     try {
         const parsedSizes = JSON.parse(sizesStr!);
@@ -59,24 +71,38 @@ export async function POST(req: NextRequest) {
         }
         
         sizes = parsedSizes.map((size: any) => {
-            const quantity = Number(size.quantity);
-            if (isNaN(quantity) || quantity < 0) { // Enforce non-negative quantity
-                 throw new Error(`Quantity for size ${size.name} must be a non-negative number.`);
-            }
+            const quantity = Number(size.quantity);
+            if (isNaN(quantity) || quantity < 0) {
+                 throw new Error(`Quantity for size ${size.name} must be a non-negative number.`);
+            }
+
+            // Validate and structure AddOns array
+            const addOns: iAddOn[] = (Array.isArray(size.addOns) ? size.addOns : []).map((addon: any) => {
+                const priceAdjustment = Number(addon.priceAdjustment);
+                if (isNaN(priceAdjustment) || priceAdjustment < 0) {
+                    throw new Error(`Price adjustment for addOn must be a non-negative number.`);
+                }
+                return {
+                    detail: String(addon.detail),
+                    priceAdjustment: priceAdjustment,
+                };
+            });
+
             return {
                 name: String(size.name),
                 quantity: quantity,
+                addOns: addOns, // <-- NEW: Insert parsed AddOns
             };
         });
         
     } catch (e: any) {
         return NextResponse.json(
-            { error: e.message || "Invalid sizes format or content. Must be a JSON array of {name, quantity} with non-negative quantities." },
+            { error: e.message || "Invalid sizes format or content." },
             { status: 400 }
         );
     }
 
-    // --- 5. Parse and Validate Priority ---
+    // --- 6. Parse and Validate Priority (Unchanged) ---
     let priority: number | null = null;
     if (priorityStr !== null && priorityStr !== "") {
         const parsedPriority = parseInt(priorityStr);
@@ -92,9 +118,9 @@ export async function POST(req: NextRequest) {
     await connectToDatabase();
 
     let imageURLs: { url: string; fileId: string }[] = [];
-    let videoURL: { url: string; fileId: string } | null = null;
+    let videoURL: { url: string; fileId: string } | null = null;
 
-    // --- 6. Upload Images (Up to 12) ---
+    // --- 7. Upload Images (Up to 12) (Unchanged) ---
     for (const file of imageFiles) {
       const arrayBuffer = await file.arrayBuffer();
       const buffer = Buffer.from(arrayBuffer);
@@ -102,45 +128,40 @@ export async function POST(req: NextRequest) {
       const uploaded = await imagekit.upload({
         file: buffer,
         fileName: `${Date.now()}-${file.name}`,
-        folder: "/products/images", // Recommended: organize files
+        folder: "/products/images",
       });
 
-      imageURLs.push({
-        url: uploaded.url,
-        fileId: uploaded.fileId,
-      });
+      imageURLs.push({ url: uploaded.url, fileId: uploaded.fileId });
     }
 
-    // --- 7. Upload Optional Video (Max 1) ---
-    if (videoFile) {
-        const arrayBuffer = await videoFile.arrayBuffer();
+    // --- 8. Upload Optional Video (Max 1) (Unchanged) ---
+    if (videoFile) {
+        const arrayBuffer = await videoFile.arrayBuffer();
         const buffer = Buffer.from(arrayBuffer);
 
         const uploaded = await imagekit.upload({
             file: buffer,
             fileName: `${Date.now()}-${videoFile.name}`,
-            folder: "/products/videos", // Recommended: organize files
-            isPrivateFile: false, // Videos are often public
+            folder: "/products/videos",
+            isPrivateFile: false,
         });
-        
-        videoURL = {
-            url: uploaded.url,
-            fileId: uploaded.fileId,
-        };
-    }
+        
+        videoURL = { url: uploaded.url, fileId: uploaded.fileId };
+    }
 
-    // --- 8. Final Product Creation Call ---
+    // --- 9. FIXED: Final Product Creation Call using cartLimit ---
     const newProduct = await Product.create({
       title,
       description,
       price,
       images: imageURLs,
-      video: videoURL, // <-- INSERTED: Video URL
+      video: videoURL,
       category,
       sizes, 
       priority, 
+      cartLimit, // <-- FIXED: Insert the cartLimit
     });
-    // ----------------------------------------
+    // ---------------------------------------------------
 
     return NextResponse.json(
       { message: "Product created", product: newProduct },
@@ -148,6 +169,10 @@ export async function POST(req: NextRequest) {
     );
   } catch (error) {
     console.error("Add product error:", error); 
+    
+    // NOTE: If file uploads occurred before the error, you may want to add logic 
+    // to delete those files from ImageKit to prevent orphaned media.
+    
     return NextResponse.json(
       { error: "Failed to create product" },
       { status: 500 }

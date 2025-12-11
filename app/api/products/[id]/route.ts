@@ -5,6 +5,8 @@ import Product, { iProductSize } from "@/lib/models/products/product";
 import { imagekit } from "@/lib/service/imagekit";
 import { Types } from "mongoose";
 
+// We still need to ensure the Product model is defined, but we remove the direct use of User populate.
+
 const MAX_IMAGES = 12;
 const VIDEO_FIELD_NAME = "videoFile";
 
@@ -24,8 +26,7 @@ async function deleteImagekitFileIfPossible(media: any) {
   }
 }
 
-/* ---------- GET single product (NO CHANGE REQUIRED) ---------- */
-// Mongoose automatically includes the new 'video' field
+/* ---------- GET single product (MODIFIED TO USE $lookup) ---------- */
 export async function GET(req: NextRequest, { params }: { params: any }) {
   try {
     const resolvedParams = await params;
@@ -38,13 +39,55 @@ export async function GET(req: NextRequest, { params }: { params: any }) {
 
     await connectToDatabase();
 
-    // Populate reviews for completeness (optional but good practice)
-    const product = await Product.findById(id).populate({
-        path: "reviews.userId",
-        model: "User",
-        select: "fullName profileImage",
-    });
-    
+    // 1. Use the aggregation pipeline to find the single product and perform the join.
+    const productArr = await Product.aggregate([
+        // Match the specific product ID
+        { $match: { _id: new Types.ObjectId(id) } },
+        
+        // Perform the lookup (Manual Population)
+        {
+            $lookup: {
+                from: 'users', // The name of the User collection in MongoDB
+                localField: 'reviews.userId',
+                foreignField: '_id',
+                as: 'populatedUsers'
+            }
+        },
+        
+        // Reconstruct the final product shape (similar to your listing route logic)
+        {
+            $project: {
+                // Include all product fields (including increment and badges)
+                title: 1, description: 1, images: 1, video: 1, price: 1, category: 1,
+                badges: 1, sizes: 1, priority: 1, createdAt: 1, updatedAt: 1, increment: 1, // <-- Ensures increment is included
+                
+                // Reconstruct the reviews array with populated user data
+                reviews: {
+                    $map: {
+                        input: "$reviews",
+                        as: "review",
+                        in: {
+                            _id: "$$review._id",
+                            userId: "$$review.userId",
+                            rating: "$$review.rating",
+                            comment: "$$review.comment",
+                            createdAt: "$$review.createdAt",
+                            updatedAt: "$$review.updatedAt",
+                            user: {
+                                $arrayElemAt: [
+                                    "$populatedUsers",
+                                    { $indexOfArray: ["$populatedUsers._id", "$$review.userId"] }
+                                ]
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    ]);
+    
+    const product = productArr[0]; // Aggregate returns an array, take the first element.
+
     if (!product) {
       return NextResponse.json({ error: "Product not found" }, { status: 404 });
     }
@@ -56,7 +99,7 @@ export async function GET(req: NextRequest, { params }: { params: any }) {
   }
 }
 
-/* ---------- PATCH (update product) - FULLY MODIFIED ---------- */
+/* ---------- PATCH (update product) - FULLY MODIFIED AND FIXED for cartLimit ---------- */
 export async function PATCH(req: NextRequest, { params }: { params: any }) {
   try {
     const resolvedParams = await params;
@@ -73,7 +116,10 @@ export async function PATCH(req: NextRequest, { params }: { params: any }) {
 
     const contentType = req.headers.get("content-type") || "";
     const updateData: any = {};
-    let currentVideo = existing.video; // Track current video object
+    let currentVideo = existing.video; 
+    
+    // Unified variable for images. Defined here for full scope access.
+    let imagesToSave = existing.images.slice(); 
 
     if (contentType.includes("multipart/form-data")) {
       const form = await req.formData();
@@ -86,13 +132,18 @@ export async function PATCH(req: NextRequest, { params }: { params: any }) {
 
       const sizesStr = form.get("sizes") as string | null; 
       const priorityStr = form.get("priority") as string | null;
-        
-      // --- NEW MEDIA FIELDS ---
-      const imageFiles = form.getAll("images") as File[]; // Only new/replacement images
-      const videoFile = form.get(VIDEO_FIELD_NAME) as File | null; 
-      const deleteVideo = form.get("deleteVideo") === "true";
+      
+      // ------------------------------------------------------------------
+      // Target Field: cartLimit
+      const cartLimitStr = form.get("cartLimit") as string | null;
+      // ------------------------------------------------------------------
+      
+      // --- NEW MEDIA FIELDS ---
+      const imageFiles = form.getAll("images") as File[]; 
+      const videoFile = form.get(VIDEO_FIELD_NAME) as File | null; 
+      const deleteVideo = form.get("deleteVideo") === "true";
       // ------------------------
-        
+        
       const replaceIndexes = JSON.parse((form.get("replaceIndexes") as string) || "[]") as number[];
       const deleteIndexes = JSON.parse((form.get("deleteIndexes") as string) || "[]") as number[];
 
@@ -106,8 +157,22 @@ export async function PATCH(req: NextRequest, { params }: { params: any }) {
       } else if (category) {
         updateData.category = category;
       }
+      
+      // ------------------------------------------------------------------
+      // ✅ FIXED LOGIC for cartLimit (form-data)
+      if (cartLimitStr !== null) {
+          const cartLimit = parseInt(cartLimitStr);
+          // Check for valid number and schema minimum (1)
+          if (!isNaN(cartLimit) && cartLimit >= 1) {
+              updateData.cartLimit = cartLimit;
+          } else if (cartLimitStr.trim() !== "") {
+              return NextResponse.json({ error: "Invalid cartLimit value. Must be a number >= 1." }, { status: 400 });
+          }
+      }
+      // ------------------------------------------------------------------
 
-      // --- Handle Sizes Update from form-data ---
+
+      // --- Handle Sizes Update from form-data [FIXED: Include addOns] ---
       if (sizesStr !== null) {
           try {
               const parsedSizes = JSON.parse(sizesStr);
@@ -115,9 +180,11 @@ export async function PATCH(req: NextRequest, { params }: { params: any }) {
               updateData.sizes = parsedSizes.map((size: any) => ({
                   name: String(size.name),
                   quantity: Number(size.quantity) >= 0 ? Number(size.quantity) : 0,
+                  addOns: Array.isArray(size.addOns) ? size.addOns : [], 
               })) as iProductSize[];
           } catch (e) {
-              return NextResponse.json({ error: "Invalid sizes format." }, { status: 400 });
+              log("Sizes parsing error:", e);
+              return NextResponse.json({ error: "Invalid sizes format (check quantity/addOns structure)." }, { status: 400 });
           }
       }
       
@@ -129,72 +196,68 @@ export async function PATCH(req: NextRequest, { params }: { params: any }) {
           }
           updateData.priority = priority;
       }
-        
-      // --- START VIDEO HANDLING (form-data) ---
-      if (deleteVideo) {
-          if (currentVideo) await deleteImagekitFileIfPossible(currentVideo);
-          updateData.video = null;
-      } else if (videoFile) {
-          if (videoFile.size === 0) {
-              return NextResponse.json({ error: "Provided video file is empty." }, { status: 400 });
-          }
-          const buffer = Buffer.from(await videoFile.arrayBuffer());
-          const uploaded = await imagekit.upload({ file: buffer, fileName: `${Date.now()}-${videoFile.name}`, folder: "/products/videos" });
-          
-          if (currentVideo) await deleteImagekitFileIfPossible(currentVideo);
-          updateData.video = { url: uploaded.url, fileId: uploaded.fileId };
-      }
-      // --- END VIDEO HANDLING (form-data) ---
+      
+      // --- START VIDEO HANDLING (form-data) ---
+      if (deleteVideo) {
+          if (currentVideo) await deleteImagekitFileIfPossible(currentVideo);
+          updateData.video = null;
+      } else if (videoFile) {
+          if (videoFile.size === 0) {
+              return NextResponse.json({ error: "Provided video file is empty." }, { status: 400 });
+          }
+          const buffer = Buffer.from(await videoFile.arrayBuffer());
+          const uploaded = await imagekit.upload({ file: buffer, fileName: `${Date.now()}-${videoFile.name}`, folder: "/products/videos" });
+          
+          if (currentVideo) await deleteImagekitFileIfPossible(currentVideo);
+          updateData.video = { url: uploaded.url, fileId: uploaded.fileId };
+      }
+      // --- END VIDEO HANDLING (form-data) ---
 
-      let images = existing.images.slice();
-
+      // --- START IMAGES HANDLING (form-data) ---
       // Delete images
-      for (const idx of deleteIndexes.sort((a, b) => b - a)) { // Sort descending to prevent index shift issues
-        if (images[idx]) {
-          await deleteImagekitFileIfPossible(images[idx]);
-          images.splice(idx, 1);
+      for (const idx of deleteIndexes.sort((a, b) => b - a)) { 
+        if (imagesToSave[idx]) {
+          await deleteImagekitFileIfPossible(imagesToSave[idx]);
+          imagesToSave.splice(idx, 1);
         }
       }
 
-      // Replace images
-      const filesToAppend: File[] = [];
+      // Replace images and append new images
+      // ... (Image logic remains the same) ...
       for (let i = 0; i < replaceIndexes.length; i++) {
         const file = imageFiles[i];
         const idx = replaceIndexes[i];
-        if (!file) { // Files intended for replacement are at the start of the imageFiles array
-            filesToAppend.push(imageFiles[i]); // Should not happen in a typical frontend flow, but safeguard
-            continue;
-        }
+        if (!file) { continue; }
 
         const buffer = Buffer.from(await file.arrayBuffer());
         const uploaded = await imagekit.upload({ file: buffer, fileName: `${Date.now()}-${file.name}`, folder: "/products/images" });
 
-        if (images[idx]) await deleteImagekitFileIfPossible(images[idx]);
-        images[idx] = { url: uploaded.url, fileId: uploaded.fileId };
+        if (imagesToSave[idx]) await deleteImagekitFileIfPossible(imagesToSave[idx]);
+        imagesToSave[idx] = { url: uploaded.url, fileId: uploaded.fileId };
       }
 
-      // Append new images (Remaining files in imageFiles array)
       const appendStartIndex = replaceIndexes.length;
       for (let i = appendStartIndex; i < imageFiles.length; i++) {
-        if (images.length >= MAX_IMAGES) break; // Use 12 image limit
+        if (imagesToSave.length >= MAX_IMAGES) break; 
         const file = imageFiles[i];
         const buffer = Buffer.from(await file.arrayBuffer());
         const uploaded = await imagekit.upload({ file: buffer, fileName: `${Date.now()}-${file.name}`, folder: "/products/images" });
-        images.push({ url: uploaded.url, fileId: uploaded.fileId });
+        imagesToSave.push({ url: uploaded.url, fileId: uploaded.fileId });
       }
 
-      if (images.length === 0) {
+      if (imagesToSave.length === 0) {
         return NextResponse.json({ error: "At least 1 image required" }, { status: 400 });
       }
 
-      updateData.images = images;
+      updateData.images = imagesToSave; // Final assignment for form-data
+      // --- END IMAGES HANDLING (form-data) ---
 
     } else {
       // JSON updates
       const body = (await req.json().catch(() => ({}))) as any;
       
-      // --- MODIFIED: Added video fields to JSON destructuring ---
-      const { title, description, price, deleteImages, replaceImages, removeCategory, sizes, priority, deleteVideo, video } = body; 
+      // Destructuring for cartLimit
+      const { title, description, price, deleteImages, replaceImages, removeCategory, sizes, priority, deleteVideo, video, cartLimit } = body; 
 
       if (title !== undefined) updateData.title = title;
       if (description !== undefined) updateData.description = description;
@@ -206,8 +269,21 @@ export async function PATCH(req: NextRequest, { params }: { params: any }) {
       } else if (body.category) {
         updateData.category = body.category;
       }
+      
+      // ------------------------------------------------------------------
+      // ✅ FIXED LOGIC for cartLimit (JSON)
+      if (cartLimit !== undefined && cartLimit !== null) {
+          const finalLimit = Number(cartLimit);
+          // Check for valid number and schema minimum (1)
+          if (!Number.isNaN(finalLimit) && finalLimit >= 1) {
+              updateData.cartLimit = finalLimit;
+          } else if (cartLimit !== "") {
+              return NextResponse.json({ error: "Invalid cartLimit value. Must be a number >= 1." }, { status: 400 });
+          }
+      }
+      // ------------------------------------------------------------------
 
-      // --- Handle Sizes Update from JSON ---
+      // --- Handle Sizes Update from JSON [FIXED: Include addOns] ---
       if (sizes !== undefined) {
           if (!Array.isArray(sizes)) {
               return NextResponse.json({ error: "Sizes must be a JSON array." }, { status: 400 });
@@ -215,6 +291,7 @@ export async function PATCH(req: NextRequest, { params }: { params: any }) {
           updateData.sizes = sizes.map((size: any) => ({
               name: String(size.name),
               quantity: Number(size.quantity) >= 0 ? Number(size.quantity) : 0,
+              addOns: Array.isArray(size.addOns) ? size.addOns : [],
           })) as iProductSize[];
       }
       
@@ -226,35 +303,31 @@ export async function PATCH(req: NextRequest, { params }: { params: any }) {
           }
           updateData.priority = finalPriority;
       }
-      
-      // --- START VIDEO HANDLING (JSON) ---
-      if (deleteVideo) {
-          if (currentVideo) await deleteImagekitFileIfPossible(currentVideo);
-          updateData.video = null;
-      } else if (video !== undefined) {
-          // 'video' field expects a new { url, fileId } object or null to remove it (if not deleted by flag)
-          if (video === null) {
-              if (currentVideo) await deleteImagekitFileIfPossible(currentVideo);
-              updateData.video = null;
-          } else if (typeof video === 'object' && video.url && video.fileId) {
-              // Assuming this is a pre-uploaded video replacement or a new one
-              updateData.video = video;
-              // Note: If the replaced video was the *existing* one, the frontend must ensure its deletion.
-              // For simplicity, we assume frontend manages deletion when replacing via JSON, or the user sends the new object directly.
-          } else {
-               return NextResponse.json({ error: "Invalid video format provided in JSON body." }, { status: 400 });
-          }
-      }
-      // --- END VIDEO HANDLING (JSON) ---
 
-      let currentImages = existing.images.slice();
+      // --- START VIDEO HANDLING (JSON) ---
+      if (deleteVideo) {
+          if (currentVideo) await deleteImagekitFileIfPossible(currentVideo);
+          updateData.video = null;
+      } else if (video !== undefined) {
+          if (video === null) {
+              if (currentVideo) await deleteImagekitFileIfPossible(currentVideo);
+              updateData.video = null;
+          } else if (typeof video === 'object' && video.url && video.fileId) {
+              updateData.video = video;
+          } else {
+               return NextResponse.json({ error: "Invalid video format provided in JSON body." }, { status: 400 });
+          }
+      }
+      // --- END VIDEO HANDLING (JSON) ---
 
+      
+      // --- START IMAGES HANDLING (JSON) ---
       // Delete images
       if (Array.isArray(deleteImages)) {
-        for (const idx of deleteImages.sort((a, b) => b - a)) { // Sort descending
-          if (currentImages[idx]) {
-            await deleteImagekitFileIfPossible(currentImages[idx]);
-            currentImages.splice(idx, 1);
+        for (const idx of deleteImages.sort((a, b) => b - a)) { 
+          if (imagesToSave[idx]) {
+            await deleteImagekitFileIfPossible(imagesToSave[idx]);
+            imagesToSave.splice(idx, 1);
           }
         }
       }
@@ -263,20 +336,23 @@ export async function PATCH(req: NextRequest, { params }: { params: any }) {
       if (Array.isArray(replaceImages)) {
         for (const item of replaceImages) {
           const { idx, url, fileId } = item;
-          if (!currentImages[idx]) continue;
-          await deleteImagekitFileIfPossible(currentImages[idx]);
-          currentImages[idx] = { url, fileId };
+          if (!imagesToSave[idx]) continue;
+          await deleteImagekitFileIfPossible(imagesToSave[idx]);
+          imagesToSave[idx] = { url, fileId };
         }
       }
 
-      if (currentImages.length === 0) {
+      if (imagesToSave.length === 0) {
         return NextResponse.json({ error: "At least 1 image required" }, { status: 400 });
       }
 
-      updateData.images = currentImages;
+      updateData.images = imagesToSave; // Final assignment for JSON 
+      // --- END IMAGES HANDLING (JSON) ---
+
     }
 
-    const updated = await Product.findByIdAndUpdate(id, updateData, { new: true });
+
+    const updated = await Product.findByIdAndUpdate(id, updateData, { new: true, runValidators: true });
     return NextResponse.json({ message: "Product updated", product: updated }, { status: 200 });
 
   } catch (err) {
