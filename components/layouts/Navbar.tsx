@@ -1,256 +1,167 @@
 "use client";
 
+import React, { useState } from "react";
 import Link from "next/link";
-import { useState, useEffect } from "react";
-import { usePathname } from "next/navigation";
-import { useSession, signIn } from "next-auth/react";
+import Image from "next/image";
+import { Menu, X, Search, ShoppingBag } from "lucide-react";
 
-export default function Navbar() {
-  const [open, setOpen] = useState(false);
-  const pathname = usePathname();
-  const { data: session, status } = useSession();
+interface NavLink {
+  label: string;
+  href: string;
+}
 
-  // ✅ whenever route changes → close drawer
-  useEffect(() => {
-    setOpen(false);
-  }, [pathname]);
+const Navbar: React.FC = () => {
+  const [isOpen, setIsOpen] = useState(false);
 
-  // Safe type checking for isAdmin with debugging
-  const isAdmin = session?.user?.isAdmin || false;
-
-  // Debug logging (remove in production)
-  useEffect(() => {
-    if (session) {
-      console.log("🔐 Session Debug:", {
-        hasSession: !!session,
-        userEmail: session.user?.email,
-        isAdmin: session.user?.isAdmin,
-        fullUser: session.user,
-      });
-    }
-  }, [session]);
+  const navigationLinks: NavLink[] = [
+    { label: "Home", href: "/" },
+    { label: "Cloths", href: "/cloths" },
+    { label: "Categories", href: "/categories" },
+    { label: "Men", href: "/men" },
+    { label: "Women", href: "/women" },
+  ];
 
   return (
-    <>
-      {/* Navbar button */}
-      <nav className="fixed top-6 left-1/2 -translate-x-1/2 z-50 w-[90%] max-w-6xl">
-        <div className="bg-white/80 backdrop-blur-md shadow-lg rounded-full px-8 py-4 flex justify-between items-center">
-          <Link
-            href="/"
-            className="text-2xl font-bold bg-linear-to-r from-[#8e9eab] to-[#6b7a8f] bg-clip-text text-transparent"
+    <nav className="fixed top-0 left-0 right-0 bg-white shadow-md z-50 py-5 lg:py-1">
+      {/* Navbar Container */}
+      <div className="flex items-center justify-between px-4 md:px-8">
+
+        {/* Hamburger Menu - Mobile */}
+        <button
+          className="md:hidden text-gray-700"
+          onClick={() => setIsOpen(true)}
+        >
+          <Menu size={28} />
+        </button>
+
+        {/* Logo Center */}
+     <Link
+  href="/"
+  className="absolute left-1/2 -translate-x-1/2 md:static md:translate-x-0 scale-150 pt-1 pb-3 lg:pb-0"
+>
+  <Image
+    src="/images/logo/logo-1.png"
+    alt="Sana-urooj-Ecommerce"
+    width={180} // keeps desktop width same as original
+    height={180} // keeps desktop height same as original
+    className="object-contain filter contrast-125 drop-shadow-md md:w-[150px] md:h-[60px] w-18 h-18 pt-3" 
+    // w-32 h-32 for mobile, md:w-[180px] md:h-[180px] for desktop
+  />
+</Link>
+
+
+        {/* Right Icons / Desktop Links */}
+        <div className="flex items-center gap-4 md:gap-6">
+
+          {/* Login */}
+             <Link
+            href="/search"
+            className="text-gray-700 hover:text-black md:flex hidden items-center"
           >
-            <span className="text-sky-500">Ocean</span>ova
+              Admin Panel
+          </Link>
+          {/* Search */}
+          <Link
+            href="/search"
+            className="text-gray-700 hover:text-black md:flex hidden items-center"
+          >
+            Search
+          </Link>
+          <Link
+            href="/search"
+            className="md:hidden text-gray-700 hover:text-black"
+          >
+            <Search size={22} />
           </Link>
 
-          {/* Show admin badge in navbar if user is admin */}
-          {isAdmin && (
-            <div className="hidden md:flex items-center">
-              <span className="bg-purple-100 text-purple-800 text-xs font-medium px-2.5 py-0.5 rounded-full border border-purple-400">
-                Admin
-              </span>
-            </div>
-          )}
-
-          <button
-            onClick={() => setOpen(true)}
-            className="text-gray-700 flex items-center gap-2"
-          >
-            <svg
-              className="w-6 h-6"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M4 6h16M4 12h16M4 18h16"
-              />
-            </svg>
-            Menu
-          </button>
-        </div>
-      </nav>
-
-      {/* Backdrop */}
-      <div
-        onClick={() => setOpen(false)}
-        className={`fixed inset-0 bg-black/40 backdrop-blur-sm z-40 transition-opacity duration-500 ${
-          open
-            ? "opacity-100 pointer-events-auto"
-            : "opacity-0 pointer-events-none"
-        }`}
-      />
-
-      {/* Drawer */}
-      <div
-        className={`fixed top-0 right-0 h-full w-72 bg-white shadow-xl z-50 transform transition-transform duration-500 ease-[cubic-bezier(.24,1,.32,1)] ${
-          open ? "translate-x-0" : "translate-x-full"
-        }`}
-      >
-        {/* Drawer header */}
-        <div className="p-6 flex justify-between items-center border-b">
-          <span className="text-xl font-bold">Menu</span>
-          <button onClick={() => setOpen(false)}>
-            <svg className="w-7 h-7" fill="none" stroke="currentColor">
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M6 18L18 6M6 6l12 12"
-              />
-            </svg>
-          </button>
-        </div>
-
-        {/* Drawer links */}
-        <div className="flex flex-col divide-y text-lg">
-          {/* Home always at the top */}
-          <Link
-            href="/"
-            className="py-4 px-6 hover:bg-gray-50"
-            onClick={() => setOpen(false)}
-          >
-            Home
-          </Link>
-
-          {/* Common links for all users */}
-          <Link
-            href="/products"
-            className="py-4 px-6 hover:bg-gray-50"
-            onClick={() => setOpen(false)}
-          >
-            Products
-          </Link>
+          {/* Cart */}
           <Link
             href="/cart"
-            className="py-4 px-6 hover:bg-gray-50"
-            onClick={() => setOpen(false)}
+            className="relative text-gray-700 hover:text-black md:flex hidden items-center"
           >
             Cart
           </Link>
           <Link
-            href="/about"
-            className="py-4 px-6 hover:bg-gray-50"
-            onClick={() => setOpen(false)}
+            href="/cart"
+            className="md:hidden text-gray-700 hover:text-black relative"
           >
-            About
+            <ShoppingBag size={22} />
+            <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
+              0
+            </span>
           </Link>
-          <Link
-            href="/contact"
-            className="py-4 px-6 hover:bg-gray-50"
-            onClick={() => setOpen(false)}
-          >
-            Contact
-          </Link>
-
-          {/* Order links - only show if user is logged in */}
-          {session && (
-            <>
-              <Link
-                href="/pendingOrders"
-                className="py-4 px-6 hover:bg-gray-50"
-                onClick={() => setOpen(false)}
-              >
-                Pending Orders
-              </Link>
-              <Link
-                href="/completedOrders"
-                className="py-4 px-6 hover:bg-gray-50"
-                onClick={() => setOpen(false)}
-              >
-                Completed Orders
-              </Link>
-            </>
-          )}
-
-          {/* Conditional Admin Panel - only show if user is admin */}
-          {status === "loading" ? (
-            <div className="py-4 px-6 text-gray-500">Loading...</div>
-          ) : isAdmin ? (
-            <Link
-              href="/admin"
-              className="py-4 px-6 hover:bg-gray-50 flex items-center gap-2 bg-purple-50 border-l-4 border-purple-500"
-              onClick={() => setOpen(false)}
-            >
-              <svg
-                className="w-5 h-5 text-purple-600"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"
-                />
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
-                />
-              </svg>
-              Admin Panel
-              <span className="ml-auto bg-purple-100 text-purple-800 text-xs font-medium px-2 py-0.5 rounded-full">
-                Admin
-              </span>
-            </Link>
-          ) : null}
-
-          {/* User Dashboard for all authenticated users */}
-          {session && (
-            <Link
-              href="/userdashboard"
-              className="py-4 px-6 hover:bg-gray-50 flex items-center gap-2"
-              onClick={() => setOpen(false)}
-            >
-              <svg
-                className="w-5 h-5 text-blue-600"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
-                />
-              </svg>
-              User Dashboard
-            </Link>
-          )}
-
-          {/* SIGN IN BUTTON - Only show when no session */}
-          {!session && status !== "loading" && (
-            <button
-              onClick={() => {
-                setOpen(false);
-                signIn();
-              }}
-              className="py-4 px-6 hover:bg-gray-50 text-left flex items-center gap-2 text-blue-600 font-semibold"
-            >
-              <svg
-                className="w-5 h-5"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1"
-                />
-              </svg>
-              Sign In
-            </button>
-          )}
         </div>
       </div>
-    </>
+
+      {/* Desktop Nav Links */}
+      <div className="hidden md:flex justify-center gap-10 pb-3">
+        {navigationLinks.map((link) => (
+          <Link
+            key={link.href}
+            href={link.href}
+            className="relative text-gray-700 font-medium group"
+          >
+            {link.label}
+            <span className="absolute left-0 -bottom-2 h-0.5 w-0 bg-black transition-all duration-300 group-hover:w-full"></span>
+          </Link>
+        ))}
+      </div>
+
+      {/* Mobile Sidebar */}
+      <div
+        className={`fixed top-0 left-0 h-full w-64 bg-white shadow-xl z-50 transform transition-transform duration-300 ${
+          isOpen ? "translate-x-0" : "-translate-x-full"
+        }`}
+      >
+        {/* Close Button */}
+        <button
+          onClick={() => setIsOpen(false)}
+          className="p-4 text-gray-700"
+        >
+          <X size={28} />
+        </button>
+
+        {/* Mobile Nav Links */}
+        <div className="flex flex-col mt-4 pl-6 gap-6">
+          {navigationLinks.map((link) => (
+            <Link
+              key={link.href}
+              href={link.href}
+              className="relative text-gray-700 font-medium text-lg group"
+              onClick={() => setIsOpen(false)}
+            >
+              {link.label}
+              <span className="absolute left-0 -bottom-1 h-0.5 w-0 bg-black transition-all duration-300 group-hover:w-full"></span>
+            </Link>
+          ))}
+
+          {/* Mobile Login/Admin */}
+          <Link
+            href="/login"
+            className="text-gray-700 font-medium text-lg"
+            onClick={() => setIsOpen(false)}
+          >
+            Login
+          </Link>
+          <Link
+            href="/admin"
+            className="text-gray-700 font-medium text-lg"
+            onClick={() => setIsOpen(false)}
+          >
+            Admin Panel
+          </Link>
+        </div>
+      </div>
+
+      {/* Overlay */}
+      {isOpen && (
+        <div
+          className="fixed inset-0 bg-black/40 z-40 md:hidden"
+          onClick={() => setIsOpen(false)}
+        ></div>
+      )}
+    </nav>
   );
-}
+};
+
+export default Navbar;
