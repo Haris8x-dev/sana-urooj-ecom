@@ -3,3 +3,8 @@
 HTML, body {
     overflow-x: hidden;
 }
+
+/* hide scrollbar for WebKit browsers */
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
+}

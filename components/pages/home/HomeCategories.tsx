@@ -41,8 +41,8 @@ const ProductCard: React.FC<{ product: Product }> = ({ product }) => {
 
     return (
         <Link href={productUrl} className="group block text-center">
-    <div
-        className="
+            <div
+                className="
             relative 
             w-full 
             overflow-hidden 
@@ -51,21 +51,21 @@ const ProductCard: React.FC<{ product: Product }> = ({ product }) => {
             h-[400px]      // mobile height
             md:h-[580px]   // desktop height
         "
-    >
-        <Image
-            src={imageUrl}
-            alt={product.title}
-            fill
-            className="object-cover transition-transform duration-500 group-hover:scale-[1.03]"
-        />
-    </div>
+            >
+                <Image
+                    src={imageUrl}
+                    alt={product.title}
+                    fill
+                    className="object-cover transition-transform duration-500 group-hover:scale-[1.03]"
+                />
+            </div>
 
-    <h4 className="text-sm uppercase tracking-wide text-gray-800 group-hover:text-black">
-        {product.title}
-    </h4>
+            <h4 className="text-sm uppercase tracking-wide text-gray-800 group-hover:text-black">
+                {product.title}
+            </h4>
 
-    <p className="text-sm text-gray-600 mt-1">{formattedPrice}</p>
-</Link>
+            <p className="text-sm text-gray-600 mt-1">{formattedPrice}</p>
+        </Link>
 
     );
 };
@@ -102,22 +102,22 @@ const DesktopScroller: React.FC<{ products: Product[] }> = ({ products }) => {
             {/* LEFT ARROW */}
             {showLeft && (
                 <button
-                    onClick={() => scrollByAmount(-400)}
+                    onClick={() => scrollByAmount(-500)}
                     className="absolute left-0 top-1/2 -translate-y-1/2 z-10
                                bg-white/70 hover:bg-white p-2 rounded-full shadow"
                 >
-                    <ChevronLeft size={22} />
+                    <ChevronLeft size={35} />
                 </button>
             )}
 
             {/* RIGHT ARROW */}
             {showRight && (
                 <button
-                    onClick={() => scrollByAmount(400)}
+                    onClick={() => scrollByAmount(500)}
                     className="absolute right-0 top-1/2 -translate-y-1/2 z-10
                                bg-white/70 hover:bg-white p-2 rounded-full shadow"
                 >
-                    <ChevronRight size={22} />
+                    <ChevronRight size={35} />
                 </button>
             )}
 
@@ -197,7 +197,7 @@ const HomeCategories: React.FC = () => {
                                 flex md:hidden 
                                 space-x-8 
                                 overflow-x-auto 
-                                no-scrollbar 
+                                scrollbar-none 
                                 pb-6 
                                 whitespace-nowrap
                             "
