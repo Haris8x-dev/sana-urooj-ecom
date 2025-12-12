@@ -120,7 +120,6 @@ const FeaturedCategories: React.FC = () => {
             </Link>
           ))}
         </div>
-
       </div>
     </section>
   );
