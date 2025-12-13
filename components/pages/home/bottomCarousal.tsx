@@ -63,7 +63,7 @@ const BottomCarousal: React.FC = () => {
   }
 
   return (
-    <section className="w-full bg-[#fcfbf4]">
+    <section className="w-full bg-[#fcfbf4] mt-10">
       {/* ---------- IMAGE AREA (70vh) ---------- */}
       <div className="relative h-[90vh] w-full overflow-hidden">
         {images.map((img, index) => (

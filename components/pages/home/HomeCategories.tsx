@@ -182,7 +182,7 @@ const HomeCategories: React.FC = () => {
             {categories.map((category, index) => (
                 <div key={category._id}>
                     {/* TITLE */}
-                    <div className="max-w-7xl mx-auto pt-12 pb-12 text-center">
+                    <div className="max-w-7xl mx-auto pt-8 pb-12 text-center">
                         <h2 className="text-3xl md:text-4xl font-serif uppercase tracking-widest text-gray-900">
                             {category.title}
                         </h2>
@@ -213,30 +213,50 @@ const HomeCategories: React.FC = () => {
                         <DesktopScroller products={category.products} />
 
                         {/* BUTTON */}
-                        <div className="flex mx-auto justify-center mt-16 mb-20">
-                            <Link
-                                href={`/category/${category._id}`}
-                                className="
-                                    inline-block 
-                                    px-10 py-3 
-                                    text-xs 
-                                    font-semibold 
-                                    uppercase 
-                                    tracking-widest 
-                                    text-white 
-                                    bg-gray-900 
-                                    hover:bg-black 
-                                    transition
-                                "
-                            >
-                                View All Products
-                            </Link>
-                        </div>
+               <div className="flex mx-auto justify-center mt-6 mb-6">
+    <Link
+        href={`/category/${category._id}`}
+        // 1. Add 'group' to make the pseudo-element hover effect work
+        className="
+            relative inline-block 
+            px-10 py-3 
+            text-xs font-semibold uppercase tracking-widest 
+            text-white 
+            bg-gray-900 
+            overflow-hidden 
+            transition-colors duration-500 ease-in-out
+            group
+            
+            // 2. Hover state for text color and background color
+            hover:text-gray-900 
+            hover:bg-transparent 
+            border border-gray-900 
+        "
+    >
+        {/* 3. Pseudo-element for the Sliding Background */}
+        <span 
+            className="
+                absolute inset-0 block 
+                bg-white 
+                transform -translate-x-full 
+                group-hover:translate-x-0 
+                transition-transform duration-500 ease-in-out
+                z-0
+            "
+            aria-hidden="true" 
+        ></span>
+
+        {/* 4. Text Content (Must be above the sliding background) */}
+        <span className="relative z-10">
+            View All Products
+        </span>
+    </Link>
+</div>
                     </div>
 
                     {/* DIVIDER */}
                     {index < categories.length - 1 && (
-                        <hr className="max-w-full mx-auto border-t border-gray-300 my-10" />
+                        <hr className="max-w-full mx-auto border-t border-gray-300 " />
                     )}
                 </div>
             ))}
