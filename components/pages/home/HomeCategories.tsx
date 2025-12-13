@@ -236,7 +236,7 @@ const HomeCategories: React.FC = () => {
 
                     {/* DIVIDER */}
                     {index < categories.length - 1 && (
-                        <hr className="max-w-7xl mx-auto border-t border-gray-300 my-10" />
+                        <hr className="max-w-full mx-auto border-t border-gray-300 my-10" />
                     )}
                 </div>
             ))}
