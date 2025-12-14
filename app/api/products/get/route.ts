@@ -32,30 +32,33 @@ export async function GET() {
                 as: 'populatedUsers'
             }
         },
-        
-        // 4. NEW: Calculate Total Stock and Sold Out Status
-        {
-            $addFields: {
-                totalStock: {
-                    $sum: "$sizes.quantity" // Sums the 'quantity' field across all elements in the 'sizes' array
-                }
-            }
-        },
-        {
-            $addFields: {
-                // If totalStock is 0, isSoldOut is true
-                isSoldOut: { $eq: ["$totalStock", 0] }
-            }
-        },
+        
+        // 4. Calculate Total Stock and Sold Out Status
+        {
+            $addFields: {
+                totalStock: {
+                    $sum: "$sizes.quantity"
+                }
+            }
+        },
+        {
+            $addFields: {
+                isSoldOut: { $eq: ["$totalStock", 0] }
+            }
+        },
 
-        // 5. Project/Clean up the final shape and remove the temporary fields (Was Stage 4, now 5)
+        // 5. Project/Clean up the intermediate shape
         {
             $project: {
                 // Include all desired product fields
                 title: 1, description: 1, images: 1, video: 1, price: 1, category: 1,
                 badges: 1, sizes: 1, priority: 1, createdAt: 1, updatedAt: 1,
-                increment: 1, // <-- Include new increment field
-                isSoldOut: 1, // <-- Include the calculated sold-out status
+                
+                // --- FIELD UPDATES ---
+                cartLimit: 1, // <-- FIXED: Use cartLimit instead of increment
+                gender: 1, // <-- ADDED: Include the new gender field
+                isSoldOut: 1, 
+                // ---------------------
                 
                 // Reconstruct the reviews array
                 reviews: {
@@ -81,12 +84,19 @@ export async function GET() {
                 }
             }
         },
-        // 6. Final cleanup to select only necessary fields from the user (Was Stage 5, now 6)
+        // 6. Final cleanup to select only necessary fields from the user
         {
              $project: {
                 // All desired product fields are included
                 title: 1, description: 1, images: 1, video: 1, price: 1, category: 1,
-                badges: 1, sizes: 1, priority: 1, createdAt: 1, updatedAt: 1, increment: 1, isSoldOut: 1,
+                badges: 1, sizes: 1, priority: 1, createdAt: 1, updatedAt: 1, 
+                
+                // --- FIELD UPDATES ---
+                cartLimit: 1, // <-- FIXED: Use cartLimit instead of increment
+                gender: 1, // <-- ADDED: Include the new gender field
+                isSoldOut: 1,
+                // ---------------------
+                
                 reviews: {
                     $map: {
                         input: "$reviews",

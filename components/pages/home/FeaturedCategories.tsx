@@ -63,10 +63,8 @@ const FeaturedCategories: React.FC = () => {
 
   return (
     <section className="w-full bg-[#fcfbf4] pt-8 pb-12 border-b border-gray-300">
-
       {/* SUPER TIGHT LEFT/RIGHT SPACING */}
       <div className="px-3 sm:px-4 md:px-10 mx-auto">
-
         {/* MOBILE: horizontal scroll
             DESKTOP: 3-column grid */}
         <div
@@ -86,16 +84,15 @@ const FeaturedCategories: React.FC = () => {
               key={category._id}
               href={`/category/${category._id}`}
               className="
-                group relative 
-                snap-start 
-                overflow-hidden cursor-pointer
-                md:w-full 
-              "
+    group relative 
+    snap-start 
+    overflow-hidden cursor-pointer
+    md:w-full 
+    h-[460px] md:h-[520px]
+  "
               style={{
-                height: "480px",
-
                 // Mobile: card width around 80–85% for horizontal swipe
-                minWidth: "85%", 
+                minWidth: "85%",
               }}
             >
               <Image

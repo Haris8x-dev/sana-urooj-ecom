@@ -9,6 +9,7 @@ import { Types } from "mongoose";
 
 const MAX_IMAGES = 12;
 const VIDEO_FIELD_NAME = "videoFile";
+const VALID_GENDERS = ['Male', 'Female']; // For validation
 
 /** Simple server log */
 function log(...args: any[]) {
@@ -26,7 +27,7 @@ async function deleteImagekitFileIfPossible(media: any) {
   }
 }
 
-/* ---------- GET single product (MODIFIED TO USE $lookup) ---------- */
+/* ---------- GET single product (FIXED: Uses 'cartLimit' instead of 'increment') ---------- */
 export async function GET(req: NextRequest, { params }: { params: any }) {
   try {
     const resolvedParams = await params;
@@ -53,14 +54,16 @@ export async function GET(req: NextRequest, { params }: { params: any }) {
                 as: 'populatedUsers'
             }
         },
-        
-        // Reconstruct the final product shape (similar to your listing route logic)
+        
+        // Reconstruct the final product shape
         {
             $project: {
-                // Include all product fields (including increment and badges)
+                // Include all product fields (INCLUDING NEW 'gender' and FIXED 'cartLimit')
                 title: 1, description: 1, images: 1, video: 1, price: 1, category: 1,
-                badges: 1, sizes: 1, priority: 1, createdAt: 1, updatedAt: 1, increment: 1, // <-- Ensures increment is included
-                
+                badges: 1, sizes: 1, priority: 1, createdAt: 1, updatedAt: 1, 
+                cartLimit: 1, // <-- FIXED: Use cartLimit
+                gender: 1, // <-- ADDED
+                
                 // Reconstruct the reviews array with populated user data
                 reviews: {
                     $map: {
@@ -99,7 +102,7 @@ export async function GET(req: NextRequest, { params }: { params: any }) {
   }
 }
 
-/* ---------- PATCH (update product) - FULLY MODIFIED AND FIXED for cartLimit ---------- */
+/* ---------- PATCH (update product) - ADDED GENDER FIELD UPDATE ---------- */
 export async function PATCH(req: NextRequest, { params }: { params: any }) {
   try {
     const resolvedParams = await params;
@@ -118,7 +121,6 @@ export async function PATCH(req: NextRequest, { params }: { params: any }) {
     const updateData: any = {};
     let currentVideo = existing.video; 
     
-    // Unified variable for images. Defined here for full scope access.
     let imagesToSave = existing.images.slice(); 
 
     if (contentType.includes("multipart/form-data")) {
@@ -132,10 +134,11 @@ export async function PATCH(req: NextRequest, { params }: { params: any }) {
 
       const sizesStr = form.get("sizes") as string | null; 
       const priorityStr = form.get("priority") as string | null;
+      const cartLimitStr = form.get("cartLimit") as string | null;
       
       // ------------------------------------------------------------------
-      // Target Field: cartLimit
-      const cartLimitStr = form.get("cartLimit") as string | null;
+      // ✅ NEW FIELD: gender
+      const genderStr = form.get("gender") as string | null;
       // ------------------------------------------------------------------
       
       // --- NEW MEDIA FIELDS ---
@@ -159,7 +162,18 @@ export async function PATCH(req: NextRequest, { params }: { params: any }) {
       }
       
       // ------------------------------------------------------------------
-      // ✅ FIXED LOGIC for cartLimit (form-data)
+      // ✅ GENDER LOGIC (form-data)
+      if (genderStr !== null) {
+          const normalizedGender = genderStr.charAt(0).toUpperCase() + genderStr.slice(1).toLowerCase();
+          if (VALID_GENDERS.includes(normalizedGender)) {
+              updateData.gender = normalizedGender;
+          } else if (genderStr.trim() !== "") {
+              return NextResponse.json({ error: "Invalid gender value. Must be 'Male' or 'Female'." }, { status: 400 });
+          }
+      }
+      // ------------------------------------------------------------------
+      
+      // ✅ cartLimit LOGIC (form-data)
       if (cartLimitStr !== null) {
           const cartLimit = parseInt(cartLimitStr);
           // Check for valid number and schema minimum (1)
@@ -197,7 +211,7 @@ export async function PATCH(req: NextRequest, { params }: { params: any }) {
           updateData.priority = priority;
       }
       
-      // --- START VIDEO HANDLING (form-data) ---
+      // --- START VIDEO HANDLING (form-data) --- (Unchanged)
       if (deleteVideo) {
           if (currentVideo) await deleteImagekitFileIfPossible(currentVideo);
           updateData.video = null;
@@ -213,7 +227,7 @@ export async function PATCH(req: NextRequest, { params }: { params: any }) {
       }
       // --- END VIDEO HANDLING (form-data) ---
 
-      // --- START IMAGES HANDLING (form-data) ---
+      // --- START IMAGES HANDLING (form-data) --- (Unchanged)
       // Delete images
       for (const idx of deleteIndexes.sort((a, b) => b - a)) { 
         if (imagesToSave[idx]) {
@@ -223,7 +237,6 @@ export async function PATCH(req: NextRequest, { params }: { params: any }) {
       }
 
       // Replace images and append new images
-      // ... (Image logic remains the same) ...
       for (let i = 0; i < replaceIndexes.length; i++) {
         const file = imageFiles[i];
         const idx = replaceIndexes[i];
@@ -256,8 +269,12 @@ export async function PATCH(req: NextRequest, { params }: { params: any }) {
       // JSON updates
       const body = (await req.json().catch(() => ({}))) as any;
       
-      // Destructuring for cartLimit
-      const { title, description, price, deleteImages, replaceImages, removeCategory, sizes, priority, deleteVideo, video, cartLimit } = body; 
+      // Destructuring for cartLimit AND gender
+      const { 
+            title, description, price, deleteImages, replaceImages, 
+            removeCategory, sizes, priority, deleteVideo, video, 
+            cartLimit, gender // <-- ADDED GENDER HERE
+        } = body; 
 
       if (title !== undefined) updateData.title = title;
       if (description !== undefined) updateData.description = description;
@@ -271,7 +288,18 @@ export async function PATCH(req: NextRequest, { params }: { params: any }) {
       }
       
       // ------------------------------------------------------------------
-      // ✅ FIXED LOGIC for cartLimit (JSON)
+      // ✅ GENDER LOGIC (JSON)
+      if (gender !== undefined && gender !== null) {
+          const normalizedGender = String(gender).charAt(0).toUpperCase() + String(gender).slice(1).toLowerCase();
+          if (VALID_GENDERS.includes(normalizedGender)) {
+              updateData.gender = normalizedGender;
+          } else if (gender !== "") {
+              return NextResponse.json({ error: "Invalid gender value. Must be 'Male' or 'Female'." }, { status: 400 });
+          }
+      }
+      // ------------------------------------------------------------------
+      
+      // ✅ cartLimit LOGIC (JSON)
       if (cartLimit !== undefined && cartLimit !== null) {
           const finalLimit = Number(cartLimit);
           // Check for valid number and schema minimum (1)
@@ -283,7 +311,7 @@ export async function PATCH(req: NextRequest, { params }: { params: any }) {
       }
       // ------------------------------------------------------------------
 
-      // --- Handle Sizes Update from JSON [FIXED: Include addOns] ---
+      // --- Handle Sizes Update from JSON [FIXED: Include addOns] --- (Unchanged)
       if (sizes !== undefined) {
           if (!Array.isArray(sizes)) {
               return NextResponse.json({ error: "Sizes must be a JSON array." }, { status: 400 });
@@ -295,7 +323,7 @@ export async function PATCH(req: NextRequest, { params }: { params: any }) {
           })) as iProductSize[];
       }
       
-      // --- Handle Priority Update from JSON ---
+      // --- Handle Priority Update from JSON --- (Unchanged)
       if (priority !== undefined) {
           const finalPriority = priority === null || priority === "" ? null : parseInt(priority);
           if (finalPriority !== null && (isNaN(finalPriority) || finalPriority < 1)) {
@@ -304,7 +332,7 @@ export async function PATCH(req: NextRequest, { params }: { params: any }) {
           updateData.priority = finalPriority;
       }
 
-      // --- START VIDEO HANDLING (JSON) ---
+      // --- START VIDEO HANDLING (JSON) --- (Unchanged)
       if (deleteVideo) {
           if (currentVideo) await deleteImagekitFileIfPossible(currentVideo);
           updateData.video = null;
@@ -321,7 +349,7 @@ export async function PATCH(req: NextRequest, { params }: { params: any }) {
       // --- END VIDEO HANDLING (JSON) ---
 
       
-      // --- START IMAGES HANDLING (JSON) ---
+      // --- START IMAGES HANDLING (JSON) --- (Unchanged)
       // Delete images
       if (Array.isArray(deleteImages)) {
         for (const idx of deleteImages.sort((a, b) => b - a)) { 
@@ -380,15 +408,15 @@ export async function DELETE(req: NextRequest, { params }: { params: any }) {
     for (const img of product.images || []) {
       await deleteImagekitFileIfPossible(img);
     }
-    
-    // 2. Delete the video from ImageKit (if one exists)
-    if (product.video) {
-        await deleteImagekitFileIfPossible(product.video);
-    }
-    
+    
+    // 2. Delete the video from ImageKit (if one exists)
+    if (product.video) {
+        await deleteImagekitFileIfPossible(product.video);
+    }
+    
     // 3. Delete the product document
     await Product.findByIdAndDelete(id);
-    
+    
     return NextResponse.json({ message: "Product deleted" }, { status: 200 });
 
   } catch (err) {

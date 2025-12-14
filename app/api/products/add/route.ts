@@ -1,9 +1,8 @@
 // app/api/products/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { connectToDatabase } from "@/lib/db/db";
-// We need to import the full type to ensure addOns structure is correct
 import Product, { iProductSize, iAddOn } from "@/lib/models/products/product"; 
-import { imagekit } from "@/lib/service/imagekit"; // Assume imagekit is available
+import { imagekit } from "@/lib/service/imagekit"; 
 
 // Define max limits
 const MAX_IMAGES = 12;
@@ -20,25 +19,40 @@ export async function POST(req: NextRequest) {
     
     const sizesStr = form.get("sizes") as string | null; 
     const priorityStr = form.get("priority") as string | null; 
-    
-    // --- 1. FIXED: Get cartLimit value instead of increment ---
     const cartLimitStr = form.get("cartLimit") as string | null;
-    // -------------------------------------------------------------
-    
+    const category = form.get("category") as string | null;
+    
+    // --- 1. NEW: Extract Gender Field ---
+    const genderStr = form.get("gender") as string | null;
+    // ------------------------------------
+
     const imageFiles = form.getAll("images") as File[];
     const videoFile = form.get(VIDEO_FIELD_NAME) as File | null;
     
-    const category = form.get("category") as string | null;
-
-    // --- 2. Basic Validation (Now checking cartLimitStr) ---
-    if (!title || !description || isNaN(price) || price <= 0 || !sizesStr || !cartLimitStr) {
+    // --- 2. Basic Validation (Including Gender Check) ---
+    if (!title || !description || isNaN(price) || price <= 0 || !sizesStr || !cartLimitStr || !genderStr) {
       return NextResponse.json(
-        { error: "Title, description, price, sizes, and cartLimit are required fields." },
+        { error: "Title, description, price, sizes, cartLimit, and gender are required fields." },
         { status: 400 }
       );
     }
+    
+    // --- 3. Validate Gender Value ---
+    let gender: 'Male' | 'Female';
+    const normalizedGender = genderStr.charAt(0).toUpperCase() + genderStr.slice(1).toLowerCase(); // Normalize to "Male" or "Female"
+    
+    if (normalizedGender === 'Male' || normalizedGender === 'Female') {
+        gender = normalizedGender as 'Male' | 'Female';
+    } else {
+        return NextResponse.json(
+            { error: "Invalid gender value. Must be 'Male' or 'Female'." },
+            { status: 400 }
+        );
+    }
+    // ------------------------------------
 
-    // --- 3. FIXED: Parse and Validate cartLimit ---
+
+    // --- 4. Parse and Validate cartLimit ---
     let cartLimit = parseInt(cartLimitStr);
     if (isNaN(cartLimit) || cartLimit < 1) {
         return NextResponse.json(
@@ -47,7 +61,7 @@ export async function POST(req: NextRequest) {
         );
     }
 
-    // --- 4. Image/Video Validation (Unchanged) ---
+    // --- 5. Image/Video Validation (Unchanged) ---
     if (imageFiles.length < MIN_IMAGES || imageFiles.length > MAX_IMAGES) {
       return NextResponse.json(
         { error: `You must upload between ${MIN_IMAGES} and ${MAX_IMAGES} images.` },
@@ -62,7 +76,7 @@ export async function POST(req: NextRequest) {
         );
     }
 
-    // --- 5. MODIFIED: Parse and Validate Sizes (Handles nested addOns) (Unchanged) ---
+    // --- 6. Parse and Validate Sizes (Unchanged) ---
     let sizes: iProductSize[] = [];
     try {
         const parsedSizes = JSON.parse(sizesStr!);
@@ -76,7 +90,6 @@ export async function POST(req: NextRequest) {
                  throw new Error(`Quantity for size ${size.name} must be a non-negative number.`);
             }
 
-            // Validate and structure AddOns array
             const addOns: iAddOn[] = (Array.isArray(size.addOns) ? size.addOns : []).map((addon: any) => {
                 const priceAdjustment = Number(addon.priceAdjustment);
                 if (isNaN(priceAdjustment) || priceAdjustment < 0) {
@@ -91,7 +104,7 @@ export async function POST(req: NextRequest) {
             return {
                 name: String(size.name),
                 quantity: quantity,
-                addOns: addOns, // <-- NEW: Insert parsed AddOns
+                addOns: addOns, 
             };
         });
         
@@ -102,7 +115,7 @@ export async function POST(req: NextRequest) {
         );
     }
 
-    // --- 6. Parse and Validate Priority (Unchanged) ---
+    // --- 7. Parse and Validate Priority (Unchanged) ---
     let priority: number | null = null;
     if (priorityStr !== null && priorityStr !== "") {
         const parsedPriority = parseInt(priorityStr);
@@ -120,7 +133,7 @@ export async function POST(req: NextRequest) {
     let imageURLs: { url: string; fileId: string }[] = [];
     let videoURL: { url: string; fileId: string } | null = null;
 
-    // --- 7. Upload Images (Up to 12) (Unchanged) ---
+    // --- 8. Upload Images (Up to 12) (Unchanged) ---
     for (const file of imageFiles) {
       const arrayBuffer = await file.arrayBuffer();
       const buffer = Buffer.from(arrayBuffer);
@@ -134,7 +147,7 @@ export async function POST(req: NextRequest) {
       imageURLs.push({ url: uploaded.url, fileId: uploaded.fileId });
     }
 
-    // --- 8. Upload Optional Video (Max 1) (Unchanged) ---
+    // --- 9. Upload Optional Video (Max 1) (Unchanged) ---
     if (videoFile) {
         const arrayBuffer = await videoFile.arrayBuffer();
         const buffer = Buffer.from(arrayBuffer);
@@ -149,7 +162,7 @@ export async function POST(req: NextRequest) {
         videoURL = { url: uploaded.url, fileId: uploaded.fileId };
     }
 
-    // --- 9. FIXED: Final Product Creation Call using cartLimit ---
+    // --- 10. Final Product Creation Call (Now includes gender) ---
     const newProduct = await Product.create({
       title,
       description,
@@ -159,7 +172,8 @@ export async function POST(req: NextRequest) {
       category,
       sizes, 
       priority, 
-      cartLimit, // <-- FIXED: Insert the cartLimit
+      cartLimit, 
+      gender, // <-- NEW: Insert the validated gender
     });
     // ---------------------------------------------------
 

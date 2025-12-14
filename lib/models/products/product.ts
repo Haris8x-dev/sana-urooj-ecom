@@ -35,7 +35,7 @@ export interface iReview {
   updatedAt?: Date;
 }
 
-// --- 3. MODIFIED: Product Interface (FIXED: Renamed increment to cartLimit) ---
+// --- 3. MODIFIED: Product Interface (ADDED: gender field) ---
 export interface iProduct extends Document {
   _id: Types.ObjectId;
   title: string;
@@ -48,9 +48,10 @@ export interface iProduct extends Document {
   badges?: iBadges; 
   sizes: iProductSize[]; 
   priority?: number | null;
-  // --- FIXED FIELD: Renamed to cartLimit ---
-  cartLimit: number; // <-- FIXED: Was 'increment'
-  // ----------------------------------
+  cartLimit: number; // FIXED: Was 'increment'
+  // --- NEW FIELD ---
+  gender: 'Male' | 'Female'; // <-- ADDED GENDER FIELD
+  // -----------------
   createdAt?: Date;
   updatedAt?: Date;
 }
@@ -95,7 +96,7 @@ export const ProductSizeSchema = new Schema(
     }
 );
 
-// Product schema (Updated)
+// Product schema (Updated with gender field)
 const ProductSchema = new Schema<iProduct>(
   {
     title: { type: String, required: true, trim: true },
@@ -148,12 +149,18 @@ const ProductSchema = new Schema<iProduct>(
       max: 999,
       index: true,
     },
-    // --- 7. NEW FIELD: FIXED (Renamed to cartLimit) ---
-    cartLimit: { // <-- FIXED: Was 'increment'
+    cartLimit: { 
       type: Number,
       default: 10, 
       min: 1,
       required: true,
+    },
+    // --- NEW FIELD ADDED HERE ---
+    gender: {
+        type: String,
+        required: true,
+        enum: ['Male', 'Female'], // Enforce only these two values
+        default: 'Female', // Default value is Female
     },
     // ------------------------------------
   },

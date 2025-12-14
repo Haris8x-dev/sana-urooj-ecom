@@ -50,7 +50,7 @@ const Navbar: React.FC = () => {
         </Link>
 
         {/* Right Icons / Desktop Links */}
-        <div className="flex items-center gap-4 md:gap-6">
+        <div className="flex items-center gap-4 md:gap-6 uppercase navItems text-[12px]">
           <Link
             href="/search"
             className="text-gray-700 hover:text-black md:flex hidden items-center"
@@ -123,7 +123,7 @@ const Navbar: React.FC = () => {
             <Link
               key={link.href}
               href={link.href}
-              className="relative text-gray-700 font-medium text-lg group"
+              className="relative text-gray-700 font-medium group uppercase navItems text-sm"
               onClick={() => setIsOpen(false)}
             >
               {link.label}
@@ -133,7 +133,7 @@ const Navbar: React.FC = () => {
 
           <Link
             href="/login"
-            className="text-gray-700 font-medium text-lg"
+            className="text-gray-700 font-medium uppercase navItems text-sm"
             onClick={() => setIsOpen(false)}
           >
             Login
@@ -141,7 +141,7 @@ const Navbar: React.FC = () => {
 
           <Link
             href="/admin"
-            className="text-gray-700 font-medium text-lg"
+            className="text-gray-700 font-medium uppercase navItems text-sm"
             onClick={() => setIsOpen(false)}
           >
             Admin Panel
