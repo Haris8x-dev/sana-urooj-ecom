@@ -48,7 +48,7 @@ const ProductCard: React.FC<{ product: Product }> = ({ product }) => {
             overflow-hidden 
             bg-gray-50 
             mb-4
-            h-[320px]      // mobile height
+            h-80      // mobile height
             md:h-[580px]   // desktop height
         "
       >
