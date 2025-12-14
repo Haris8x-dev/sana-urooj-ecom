@@ -62,7 +62,7 @@ const FeaturedCategories: React.FC = () => {
   }
 
   return (
-    <section className="w-full bg-[#fcfbf4] pt-14 pb-20 border-b border-gray-200">
+    <section className="w-full bg-[#fcfbf4] pt-8 pb-12 border-b border-gray-300">
 
       {/* SUPER TIGHT LEFT/RIGHT SPACING */}
       <div className="px-3 sm:px-4 md:px-10 mx-auto">
@@ -92,7 +92,7 @@ const FeaturedCategories: React.FC = () => {
                 md:w-full 
               "
               style={{
-                height: "550px",
+                height: "480px",
 
                 // Mobile: card width around 80–85% for horizontal swipe
                 minWidth: "85%", 

@@ -49,7 +49,7 @@ export default function HeroVideo() {
   }
 
   return (
-    <div className="relative w-screen h-screen overflow-hidden">
+    <div className="relative w-screen h-screen md:h-full md:pt-20 overflow-hidden">
       <video
         src={videoUrl}
         autoPlay
