@@ -15,8 +15,9 @@ const Navbar: React.FC = () => {
 
   const navigationLinks: NavLink[] = [
     { label: "Home", href: "/" },
-    { label: "Cloths", href: "/cloths" },
-    { label: "Categories", href: "/categories" },
+    { label: "Shop", href: "/shop" },
+    { label: "Sale", href: "/cloths" },
+    { label: "Trending", href: "/categories" },
     { label: "Men", href: "/men" },
     { label: "Women", href: "/women" },
   ];
@@ -35,38 +36,35 @@ const Navbar: React.FC = () => {
         </button>
 
         {/* Logo Center */}
-     <Link
-  href="/"
-  className="absolute left-1/2 -translate-x-1/2 md:static md:translate-x-0 scale-150 pt-1 pb-3 lg:pb-0"
->
-  <Image
-    src="/images/logo/logo-1.png"
-    alt="Sana-urooj-Ecommerce"
-    width={180} // keeps desktop width same as original
-    height={180} // keeps desktop height same as original
-    className="object-contain filter contrast-125 drop-shadow-md md:w-[150px] md:h-[60px] w-18 h-18 pt-3" 
-    // w-32 h-32 for mobile, md:w-[180px] md:h-[180px] for desktop
-  />
-</Link>
-
+        <Link
+          href="/"
+          className="absolute left-1/2 -translate-x-1/2 md:static md:translate-x-0 scale-150 pt-1 pb-3 lg:pb-0"
+        >
+          <Image
+            src="/images/logo/logo-1.png"
+            alt="Sana-urooj-Ecommerce"
+            width={180}
+            height={180}
+            className="object-contain filter contrast-125 drop-shadow-md md:w-[150px] md:h-[60px] w-18 h-18 pt-3"
+          />
+        </Link>
 
         {/* Right Icons / Desktop Links */}
         <div className="flex items-center gap-4 md:gap-6">
-
-          {/* Login */}
-             <Link
+          <Link
             href="/search"
             className="text-gray-700 hover:text-black md:flex hidden items-center"
           >
-              Admin Panel
+            Admin Panel
           </Link>
-          {/* Search */}
+
           <Link
             href="/search"
             className="text-gray-700 hover:text-black md:flex hidden items-center"
           >
             Search
           </Link>
+
           <Link
             href="/search"
             className="md:hidden text-gray-700 hover:text-black"
@@ -74,13 +72,13 @@ const Navbar: React.FC = () => {
             <Search size={22} />
           </Link>
 
-          {/* Cart */}
           <Link
             href="/cart"
             className="relative text-gray-700 hover:text-black md:flex hidden items-center"
           >
             Cart
           </Link>
+
           <Link
             href="/cart"
             className="md:hidden text-gray-700 hover:text-black relative"
@@ -94,7 +92,7 @@ const Navbar: React.FC = () => {
       </div>
 
       {/* Desktop Nav Links */}
-      <div className="hidden md:flex justify-center gap-10 pb-3">
+      <div className="hidden md:flex justify-center gap-10 pb-3 navItems uppercase text-sm font-mono">
         {navigationLinks.map((link) => (
           <Link
             key={link.href}
@@ -113,7 +111,6 @@ const Navbar: React.FC = () => {
           isOpen ? "translate-x-0" : "-translate-x-full"
         }`}
       >
-        {/* Close Button */}
         <button
           onClick={() => setIsOpen(false)}
           className="p-4 text-gray-700"
@@ -121,7 +118,6 @@ const Navbar: React.FC = () => {
           <X size={28} />
         </button>
 
-        {/* Mobile Nav Links */}
         <div className="flex flex-col mt-4 pl-6 gap-6">
           {navigationLinks.map((link) => (
             <Link
@@ -135,7 +131,6 @@ const Navbar: React.FC = () => {
             </Link>
           ))}
 
-          {/* Mobile Login/Admin */}
           <Link
             href="/login"
             className="text-gray-700 font-medium text-lg"
@@ -143,6 +138,7 @@ const Navbar: React.FC = () => {
           >
             Login
           </Link>
+
           <Link
             href="/admin"
             className="text-gray-700 font-medium text-lg"
@@ -153,7 +149,6 @@ const Navbar: React.FC = () => {
         </div>
       </div>
 
-      {/* Overlay */}
       {isOpen && (
         <div
           className="fixed inset-0 bg-black/40 z-40 md:hidden"

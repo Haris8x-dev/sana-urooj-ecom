@@ -1,4 +1,7 @@
+@import url("https://fonts.googleapis.com/css2?family=Figtree:ital,wght@0,300..900;1,300..900&display=swap");
 @import "tailwindcss";
+
+
 
 HTML, body {
     overflow-x: hidden;
@@ -18,3 +21,8 @@ HTML, body {
   }
 }
 
+.navItems {
+  font-family: "Figtree", sans-serif;
+  font-weight: normal;
+  font-style: normal;
+}
