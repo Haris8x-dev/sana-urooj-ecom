@@ -15,11 +15,13 @@ const Navbar: React.FC = () => {
 
   const navigationLinks: NavLink[] = [
     { label: "Home", href: "/" },
+    { label: "About Us", href: "/about" },
     { label: "Shop", href: "/shop" },
     { label: "Sale", href: "/cloths" },
     { label: "Trending", href: "/categories" },
     { label: "Men", href: "/men" },
     { label: "Women", href: "/women" },
+    { label: "Contact", href: "/contact" },
   ];
 
   return (
@@ -92,7 +94,7 @@ const Navbar: React.FC = () => {
       </div>
 
       {/* Desktop Nav Links */}
-      <div className="hidden md:flex justify-center gap-10 pb-3 navItems uppercase text-sm font-mono">
+      <div className="hidden md:flex justify-center gap-10 pb-3 navItems uppercase text-[11.5px] font-mono">
         {navigationLinks.map((link) => (
           <Link
             key={link.href}

@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import Image from "next/image";
+import Link from "next/link"; // ADDED: Import Link for navigation
 import { LayoutGrid, Grid3X3, Grid2X2, ChevronDown, Square } from "lucide-react"; 
 
 interface ImageObject {
@@ -25,7 +26,7 @@ export default function Shop() {
   
   // State for Layout Control
   // Desktop: 3 = Large, 4 = Medium, 6 = Small
-  // Mobile:  1 = Large (mapped from 3), 2 = Small (mapped from 4)
+  // Mobile:  1 = Large (mapped from 3), 2 = Small (mapped from 4)
   const [gridCols, setGridCols] = useState<3 | 4 | 6>(4); 
 
   useEffect(() => {
@@ -68,7 +69,7 @@ export default function Shop() {
           
           {/* --- DESKTOP ICONS (md:flex) - 3 Icons --- */}
           <div className="hidden md:flex gap-3">
-             {/* Icon 1: Large View (3 items/row) */}
+              {/* Icon 1: Large View (3 items/row) */}
             <button 
                 onClick={() => handleLayoutChange(3)}
                 className={`transition-colors ${gridCols === 3 ? "text-black" : "text-gray-400 hover:text-gray-600"}`}
@@ -99,7 +100,7 @@ export default function Shop() {
 
           {/* --- MOBILE ICONS (flex md:hidden) - 2 Icons Only --- */}
           <div className="flex md:hidden gap-3">
-             {/* Mobile Icon 1: Single Column View */}
+              {/* Mobile Icon 1: Single Column View */}
              <button 
                 onClick={() => handleLayoutChange(3)}
                 className={`transition-colors ${gridCols === 3 ? "text-black" : "text-gray-400 hover:text-gray-600"}`}
@@ -118,12 +119,10 @@ export default function Shop() {
 
         </div>
 
-        {/* MIDDLE: Empty (Removed Product Count as requested) */}
-        {/* The space is maintained by justify-between on the parent div */}
+        {/* MIDDLE: Empty */}
         <div className="h-full"></div> 
 
         {/* RIGHT: Sort & Filter */}
-        {/* Note: border-l on parent div remains */}
         <div className="h-full flex items-center px-0 gap-0">
             
             {/* Sort Dropdown Trigger */}
@@ -143,14 +142,6 @@ export default function Shop() {
         </div>
       </div>
       
-      {/* NEW: Total Product Count Below Control Bar */}
-      {/* <div className="w-full py-2 px-4 text-center">
-        <span className="text-xs font-medium tracking-wider text-gray-500 uppercase">
-            {products.length} Products
-        </span>
-      </div>
-       */}
-
       {/* 3. Product Grid */}
       <div className="w-full py-8 px-6">
         {loading ? (
@@ -171,7 +162,12 @@ export default function Shop() {
             `}
           >
             {products.map((product) => (
-              <div key={product._id} className="group relative flex flex-col">
+              // MODIFIED: Wrapped the product card in a Next.js Link component
+              <Link 
+                key={product._id} 
+                href={`/product/${product._id}`} 
+                className="group relative flex flex-col"
+              >
                 
                 {/* Image Container */}
                 <div className="relative w-full overflow-hidden bg-gray-100 aspect-3/4">
@@ -211,7 +207,7 @@ export default function Shop() {
                     </p>
                   </div>
                 )}
-              </div>
+              </Link>
             ))}
           </div>
         )}
