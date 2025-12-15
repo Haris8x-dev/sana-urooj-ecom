@@ -11,61 +11,61 @@ interface ImageObject {
   fileId: string;
 }
 
-// 1. MODIFICATION: Updated Product interface to include 'priority' field
+// NOTE: We assume the Product interface fetched from the trending API is the same.
 interface Product {
   _id: string;
   title: string;
   price: number;
   images: ImageObject[];
   isSoldOut: boolean;
-  priority: number; // Added priority field
+  // Products with Priority: 1 are trending, but we don't strictly need the priority field here, 
+  // as the API should already filter them.
 }
 
-// Interface for the API response structure (assuming it returns an array of Products)
-interface ProductData {
-    message: string;
-    products: Product[];
-    error?: string;
+// NEW INTERFACE: Reflects the expected response from a generic trending endpoint
+interface TrendingData {
+    message: string;
+    products: Product[];
+    error?: string;
 }
 
-
-export default function PriorityProducts() {
+// We remove the categoryId prop as this page is static/generic
+export default function TrendingProducts() {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   
-  // Static Title for this page
-  const [pageTitle] = useState("PRIORITY PRODUCTS (LEVEL 1)"); 
+  // Static Title for the Trending Page
+  const [pageTitle] = useState("TRENDING PRODUCTS"); 
   
   const [gridCols, setGridCols] = useState<3 | 4 | 6>(4); 
 
   useEffect(() => {
-    const fetchProducts = async () => {
+    const fetchTrendingProducts = async () => {
       try {
-        // 2. KEPT: Using the same API endpoint as requested
-        const res = await fetch("/api/products/get"); 
+        // 1. CHANGE: Use a new API endpoint specifically for fetching products with Priority: 1
+        // We assume this endpoint returns an array of products filtered by priority = 1
+        const res = await fetch(`/api/products/trending`); 
         
-        if (!res.ok) {
-            throw new Error(`Failed to fetch products: ${res.status}`);
-        }
+        if (!res.ok) {
+            throw new Error(`Failed to fetch trending products: ${res.status}`);
+        }
 
-        const data: ProductData = await res.json();
-
+        const data: TrendingData = await res.json(); 
+        
         if (data.products) {
-            // 3. MODIFICATION: Client-side filter to only keep products where priority === 1
-            const priorityOneProducts = data.products.filter(
-                (product) => product.priority === 1
-            );
-            setProducts(priorityOneProducts);
+          setProducts(data.products);
+        } else if (data.error) {
+            console.error("API Error:", data.error);
         }
       } catch (error) {
-        console.error("Failed to fetch products:", error);
+        console.error("Failed to fetch trending products:", error);
       } finally {
         setLoading(false);
       }
     };
 
-    fetchProducts();
-  }, []);
+    fetchTrendingProducts();
+  }, []); // No dependencies needed, runs once on mount
 
   // Handler to change layout - unchanged
   const handleLayoutChange = (cols: 3 | 4 | 6) => {
@@ -73,9 +73,10 @@ export default function PriorityProducts() {
   };
 
   return (
-    <div className="min-h-screen bg-[#FDFBF7] text-gray-80 py-20 lg:py-30">
-      {/* 1. Page Title */}
+    <div className="min-h-screen bg-[#FDFBF7] text-gray-80 py-20 lg:py-3">
+      {/* 1. Page Title (Static) */}
       <div className="py-2 md:py-8 text-center"> 
+        {/* Use the static title */}
         <h1 className="text-md tracking-widest text-gray-900 navItems uppercase font-mono py-4">
           {pageTitle}
         </h1>
@@ -168,20 +169,12 @@ export default function PriorityProducts() {
           <div className="flex justify-center items-center h-64">
             <p className="text-gray-400 tracking-widest text-sm">LOADING PRODUCTS...</p>
           </div>
-        ) : products.length === 0 ? (
-            <div className="flex justify-center items-center h-64">
-                <p className="text-gray-500 tracking-widest text-sm">NO PRIORITY LEVEL 1 PRODUCTS FOUND.</p>
-            </div>
-        ) : (
+        ) : (
           <div
             className={`grid gap-x-4 gap-y-4 transition-all duration-300 ease-in-out
-              ${/* Logic for Grid Cols 3 (Desktop Large / Mobile Single) */ ""}
+              ${/* Grid Logic: EXACTLY same as requested */ ""}
               ${gridCols === 3 ? "grid-cols-1 md:grid-cols-2 lg:grid-cols-3" : ""}
-              
-              ${/* Logic for Grid Cols 4 (Desktop Medium / Mobile Double) */ ""}
               ${gridCols === 4 ? "grid-cols-2 md:grid-cols-3 lg:grid-cols-4" : ""}
-              
-              ${/* Logic for Grid Cols 6 (Desktop Dense / Mobile Hidden usually, but fallback to 3) */ ""}
               ${gridCols === 6 ? "grid-cols-3 md:grid-cols-4 lg:grid-cols-6" : ""}
             `}
           >
@@ -233,6 +226,11 @@ export default function PriorityProducts() {
               </Link>
             ))}
           </div>
+        )}
+        {products.length === 0 && !loading && (
+            <div className="flex justify-center items-center h-64">
+                <p className="text-gray-500 tracking-widest text-sm">NO TRENDING PRODUCTS FOUND.</p>
+            </div>
         )}
       </div>
     </div>
