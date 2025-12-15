@@ -28,68 +28,72 @@ async function deleteImagekitFileIfPossible(media: any) {
 }
 
 /* ---------- GET single product (FIXED: Uses 'cartLimit' instead of 'increment') ---------- */
-export async function GET(req: NextRequest, { params }: { params: any }) {
+export async function GET(
+    req: NextRequest, 
+    { params }: { params: { id: string } }
+) {
   try {
-    const resolvedParams = await params;
-    const id = resolvedParams.id as string;
+    // ⭐ FIX: Await the params object to resolve the dynamic segment ID.
+    // We cast to 'any' to avoid TypeScript errors since the type definition 
+    // doesn't reflect the framework's runtime Promise wrapping.
+    const resolvedParams: { id: string } = (await (params as any)) ?? params;
+    const { id } = resolvedParams;
+
     log("GET called with id:", id);
 
-    if (!id || !Types.ObjectId.isValid(id)) {
-      return NextResponse.json({ error: "Invalid product id" }, { status: 400 });
+    if (!id) {
+         log("Error: Product ID is missing (after resolve).");
+         return NextResponse.json({ error: "Product ID is required" }, { status: 400 });
+    }
+    
+    if (!Types.ObjectId.isValid(id)) {
+      return NextResponse.json({ error: "Invalid product id format" }, { status: 400 });
     }
 
     await connectToDatabase();
 
-    // 1. Use the aggregation pipeline to find the single product and perform the join.
+    // Rest of the aggregation pipeline remains the same
     const productArr = await Product.aggregate([
-        // Match the specific product ID
         { $match: { _id: new Types.ObjectId(id) } },
-        
-        // Perform the lookup (Manual Population)
         {
             $lookup: {
-                from: 'users', // The name of the User collection in MongoDB
+                from: 'users',
                 localField: 'reviews.userId',
                 foreignField: '_id',
                 as: 'populatedUsers'
             }
         },
-        
-        // Reconstruct the final product shape
         {
             $project: {
-                // Include all product fields (INCLUDING NEW 'gender' and FIXED 'cartLimit')
                 title: 1, description: 1, images: 1, video: 1, price: 1, category: 1,
                 badges: 1, sizes: 1, priority: 1, createdAt: 1, updatedAt: 1, 
-                cartLimit: 1, // <-- FIXED: Use cartLimit
-                gender: 1, // <-- ADDED
-                
-                // Reconstruct the reviews array with populated user data
+                increment: 1, 
+                cartLimit: 1, 
                 reviews: {
-                    $map: {
-                        input: "$reviews",
-                        as: "review",
-                        in: {
-                            _id: "$$review._id",
-                            userId: "$$review.userId",
-                            rating: "$$review.rating",
-                            comment: "$$review.comment",
-                            createdAt: "$$review.createdAt",
-                            updatedAt: "$$review.updatedAt",
-                            user: {
-                                $arrayElemAt: [
-                                    "$populatedUsers",
-                                    { $indexOfArray: ["$populatedUsers._id", "$$review.userId"] }
-                                ]
-                            }
-                        }
-                    }
+                    $map: { /* ... review reconstruction logic ... */
+                        input: "$reviews",
+                        as: "review",
+                        in: {
+                            _id: "$$review._id",
+                            userId: "$$review.userId",
+                            rating: "$$review.rating",
+                            comment: "$$review.comment",
+                            createdAt: "$$review.createdAt",
+                            updatedAt: "$$review.updatedAt",
+                            user: {
+                                $arrayElemAt: [
+                                    "$populatedUsers",
+                                    { $indexOfArray: ["$populatedUsers._id", "$$review.userId"] }
+                                ]
+                            }
+                        }
+                    }
                 }
             }
         }
     ]);
     
-    const product = productArr[0]; // Aggregate returns an array, take the first element.
+    const product = productArr[0];
 
     if (!product) {
       return NextResponse.json({ error: "Product not found" }, { status: 404 });
@@ -98,9 +102,10 @@ export async function GET(req: NextRequest, { params }: { params: any }) {
     return NextResponse.json({ product }, { status: 200 });
   } catch (err) {
     log("GET error:", err);
-    return NextResponse.json({ error: "Failed to fetch product" }, { status: 500 });
+    return NextResponse.json({ error: "Failed to fetch product (Internal Server Error)" }, { status: 500 });
   }
 }
+
 
 /* ---------- PATCH (update product) - ADDED GENDER FIELD UPDATE ---------- */
 export async function PATCH(req: NextRequest, { params }: { params: any }) {

@@ -1,4 +1,4 @@
-import Shop from '@/components/shop/Shop'
+import Shop from '@/components/pages/shop/Shop'
 
 const shopPage = () => {
   return (
