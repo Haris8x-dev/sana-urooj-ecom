@@ -55,6 +55,7 @@ export default function ProductAdd() {
   const [gender, setGender] = useState<"Male" | "Female" | "">("");
   const [images, setImages] = useState<File[]>([]);
   const [videoFile, setVideoFile] = useState<File | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   
   const descriptionRef = useRef<HTMLDivElement>(null);
   
@@ -182,22 +183,64 @@ useEffect(() => {
   
   // --- Submission Handler ---
   
-  const handleSubmit = (e: React.FormEvent) => {
+ const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log("Submitting Product:", { 
-      title, 
-      description,
-      price, 
-      priority,
-      cartLimit,
-      category,
-      gender,
-      sizes: sizes.filter(s => s.name && s.quantity), // Filter out incomplete sizes
-      images: images.map(f => f.name),
-      videoFile: videoFile?.name,
-    });
-    // Add API call logic here to send data to the server
-    alert("Product data logged to console. (API integration pending)");
+    
+    // Basic validation for description
+    if (!description || description === '<p className="text-gray-400">Start typing your product description here...</p>') {
+      alert("Please enter a product description.");
+      return;
+    }
+
+    setIsSubmitting(true);
+
+    try {
+      const formData = new FormData();
+
+      // Append simple text fields
+      formData.append("title", title);
+      formData.append("description", description);
+      formData.append("price", price.toString());
+      formData.append("priority", priority.toString());
+      formData.append("cartLimit", cartLimit.toString());
+      formData.append("category", category);
+      formData.append("gender", gender);
+
+      // Append sizes as a JSON string (Backend expects this)
+      const filteredSizes = sizes.filter(s => s.name && s.quantity !== "");
+      formData.append("sizes", JSON.stringify(filteredSizes));
+
+      // Append images
+      images.forEach((file) => {
+        formData.append("images", file);
+      });
+
+      // Append video if exists
+      if (videoFile) {
+        formData.append("videoFile", videoFile);
+      }
+
+      // API Call
+      const response = await fetch("/api/products/add", { // Ensure this matches your route path
+        method: "POST",
+        body: formData, // Do not set Content-Type header; the browser will set it with the boundary
+      });
+
+      const result = await response.json();
+
+      if (response.ok) {
+        alert("Product created successfully!");
+        // Optional: Reset form or redirect
+        window.location.reload(); 
+      } else {
+        alert(`Error: ${result.error || "Failed to create product"}`);
+      }
+    } catch (error) {
+      console.error("Submission error:", error);
+      alert("An unexpected error occurred.");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   // --- Render Functions ---
@@ -464,12 +507,22 @@ useEffect(() => {
           
           {/* Submit Button */}
           <div className="pt-2">
-            <button
-              type="submit"
-              className="w-full py-3 px-4 border border-transparent rounded-md shadow-lg text-sm font-semibold text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-4 focus:ring-offset-2 focus:ring-amber-300 transition-colors"
-            >
-              Create Product
-            </button>
+     <button
+  type="submit"
+  disabled={isSubmitting}
+  className={`w-full py-3 px-4 border border-transparent rounded-md shadow-lg text-sm font-semibold text-white transition-colors flex justify-center items-center ${
+    isSubmitting ? "bg-indigo-400 cursor-not-allowed" : "bg-indigo-600 hover:bg-indigo-700"
+  }`}
+>
+  {isSubmitting ? (
+    <>
+      <Loader2 size={18} className="animate-spin mr-2" />
+      Uploading...
+    </>
+  ) : (
+    "Create Product"
+  )}
+</button>
           </div>
         </div>
 

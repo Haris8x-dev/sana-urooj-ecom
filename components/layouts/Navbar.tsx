@@ -54,7 +54,7 @@ const Navbar: React.FC = () => {
         {/* Right Icons / Desktop Links */}
         <div className="flex items-center gap-4 md:gap-6 uppercase navItems text-[12px]">
           <Link
-            href="/search"
+            href="/admin"
             className="text-gray-700 hover:text-black md:flex hidden items-center"
           >
             Admin Panel
@@ -68,7 +68,7 @@ const Navbar: React.FC = () => {
           </Link>
 
           <Link
-            href="/search"
+            href="#"
             className="md:hidden text-gray-700 hover:text-black"
           >
             <Search size={22} />
