@@ -1,7 +1,6 @@
-// components/pages/admin/display/SidePanel.tsx
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   ShoppingBag,
   Box,
@@ -12,7 +11,6 @@ import {
 } from "lucide-react";
 
 /* ---------- TYPES ---------- */
-
 export type AdminView =
   | "ProductAdd"
   | "ProductEdit"
@@ -23,7 +21,6 @@ export type AdminView =
   | "BottomCarousalEdit";
 
 /* ---------- MENU ---------- */
-
 const MENU_ITEMS = [
   {
     heading: "Products",
@@ -58,78 +55,102 @@ const MENU_ITEMS = [
   },
 ];
 
-/* ---------- PROPS ---------- */
-
 interface SidePanelProps {
   currentView: AdminView;
   onViewChange: (view: AdminView) => void;
 }
 
-/* ---------- COMPONENT ---------- */
-
 export default function SidePanel({
   currentView,
   onViewChange,
 }: SidePanelProps) {
+  // 1. Initialize based on screen size (default true for SSR, then adjusted in useEffect)
   const [isOpen, setIsOpen] = useState(true);
 
+  useEffect(() => {
+    // Set initial state based on window width
+    const handleResize = () => {
+      if (window.innerWidth < 1024) {
+        setIsOpen(false);
+      } else {
+        setIsOpen(true);
+      }
+    };
+
+    // Run on mount
+    handleResize();
+
+    // Optional: Update on window resize
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
+
+  // 2. Function to handle menu clicks
+  const handleItemClick = (view: AdminView) => {
+    onViewChange(view);
+    
+    // Auto-close if on mobile/tablet screen
+    if (window.innerWidth < 1024) {
+      setIsOpen(false);
+    }
+  };
+
   return (
-    <div className="relative h-full flex">
+    <div className="relative h-full">
       {/* PANEL */}
       <aside
         className={`
-          relative h-full w-64 shrink-0 bg-white
+          relative h-full bg-white
           border-r border-gray-200
-          transition-transform duration-300 ease-in-out
-          ${isOpen ? "translate-x-0" : "-translate-x-full"}
+          transition-all duration-300 ease-in-out
+          overflow-hidden
+          ${isOpen ? "w-64 translate-x-0" : "w-0 -translate-x-full"}
         `}
       >
-        {/* Header */}
-        <div className="p-6 border-b border-gray-200">
-          <h1 className="text-xl font-bold tracking-wider text-gray-900">
-            ADMIN PANEL
-          </h1>
-          <p className="text-xs text-gray-500 mt-1">Store Management</p>
+        <div className="w-64">
+          {/* Header */}
+          <div className="p-6 border-b border-gray-200">
+            <h1 className="text-xl font-bold tracking-wider text-gray-900">
+              ADMIN PANEL
+            </h1>
+            <p className="text-xs text-gray-500 mt-1">Store Management</p>
+          </div>
+
+          {/* Navigation */}
+          <nav className="p-4 space-y-6">
+            {MENU_ITEMS.map((group, index) => (
+              <div key={index}>
+                <div className="flex items-center text-xs font-bold uppercase text-gray-500 mb-3 mt-4 px-3">
+                  {React.createElement(group.icon, {
+                    size: 14,
+                    className: "mr-2",
+                  })}
+                  {group.heading}
+                </div>
+
+                <div className="space-y-2">
+                  {group.options.map((item) => (
+                    <button
+                      key={item.view}
+                      onClick={() => handleItemClick(item.view)}
+                      className="w-full text-left px-3 pl-8 cursor-pointer py-2 text-sm text-gray-700 transition-colors duration-200 hover:text-gray-900 relative group"
+                    >
+                      <span className="relative inline-block">
+                        {item.name}
+                        {currentView === item.view && (
+                          <span className="absolute left-0 right-0 -bottom-1 h-0.5 bg-amber-400"></span>
+                        )}
+                        {currentView !== item.view && (
+                          <span className="absolute left-0 -bottom-1 h-0.5 bg-amber-300 w-0 group-hover:w-full transition-all duration-300 ease-out"></span>
+                        )}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </nav>
         </div>
-
-        {/* Navigation */}
-        <nav className="p-4 space-y-6">
-          {MENU_ITEMS.map((group, index) => (
-            <div key={index}>
-              <div className="flex items-center text-xs font-bold uppercase text-gray-500 mb-3 mt-4 px-3">
-                {React.createElement(group.icon, {
-                  size: 14,
-                  className: "mr-2",
-                })}
-                {group.heading}
-              </div>
-
-              <div className="space-y-2">
-                {group.options.map((item) => (
-                  <button
-                    key={item.view}
-                    onClick={() => onViewChange(item.view)}
-                    className="w-full text-left px-3 pl-8 cursor-pointer py-2 text-sm text-gray-700 transition-colors duration-200 hover:text-gray-900 relative group"
-                  >
-                    <span className="relative inline-block">
-                      {item.name}
-                      
-                      {/* Active State - Permanent Underline */}
-                      {currentView === item.view && (
-                        <span className="absolute left-0 right-0 -bottom-1 h-0.5 bg-amber-400"></span>
-                      )}
-                      
-                      {/* Hover State - Animated Underline */}
-                      {currentView !== item.view && (
-                        <span className="absolute left-0 -bottom-1 h-0.5 bg-amber-300 w-0 group-hover:w-full transition-all duration-300 ease-out"></span>
-                      )}
-                    </span>
-                  </button>
-                ))}
-              </div>
-            </div>
-          ))}
-        </nav>
       </aside>
 
       {/* TOGGLE BUTTON */}
@@ -141,7 +162,7 @@ export default function SidePanel({
           z-50
           w-6 h-16
           flex items-center justify-center
-          border border-l-0 border-gray-300 rounded-r-md
+          border border-gray-300 rounded-r-md
           bg-white
           hover:bg-gray-50
           transition-all duration-300
