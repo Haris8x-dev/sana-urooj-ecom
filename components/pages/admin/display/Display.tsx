@@ -63,9 +63,6 @@ export default function Display() {
           <h1 className="text-2xl font-semibold text-gray-800">
             {currentView.replace(/([A-Z])/g, ' $1').trim()}
           </h1>
-          <p className="text-sm text-gray-500 mt-1">
-            Manage your store data and assets
-          </p>
         </div>
         
         {/* Render the selected component - Full Width */}

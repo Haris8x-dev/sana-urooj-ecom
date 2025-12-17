@@ -82,7 +82,7 @@ export default function CategoryAdd() {
   };
 
   return (
-    <div className="w-full px-4 lg:px-6 py-6 pt-10">
+    <div className="w-full px-4 lg:px-6 py-3">
         <h2 className="text-2xl font-bold text-gray-800 mb-6 px-2">Add New Category</h2>
       
       <form onSubmit={handleSubmit} className="flex flex-col lg:flex-row gap-6">

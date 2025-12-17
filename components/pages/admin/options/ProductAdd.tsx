@@ -140,9 +140,15 @@ export default function ProductAdd() {
   };
 
   return (
-    <div className="w-full px-4 sm:px-6 py-6">
+    <div className="w-full px-4 sm:px-6">
+
+      <div>
+          <h1
+          className="text-2xl font-bold pt-8 pb-8"
+          >Add A Product</h1>
+      </div>
+      
       <form onSubmit={handleSubmit} className="flex flex-col lg:flex-row gap-6 items-start">
-        
         {/* LEFT COLUMN - RESPONSIVE WIDTH */}
         <div className="w-full lg:w-1/2 space-y-5">
           <InputGroup label="Title" required>

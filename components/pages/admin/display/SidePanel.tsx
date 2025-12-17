@@ -112,7 +112,7 @@ export default function SidePanel({
       >
         <div className="w-64">
           {/* Header */}
-          <div className="p-6 border-b border-gray-200">
+          <div className="pt-32 p-6 border-b border-gray-200">
             <h1 className="text-xl font-bold tracking-wider text-gray-900">
               ADMIN PANEL
             </h1>
