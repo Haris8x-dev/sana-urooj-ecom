@@ -19,7 +19,8 @@ export type AdminView =
   | "CategoryEdit"
   | "UsersManagement"
   | "HeroVideoEdit"
-  | "BottomCarousalEdit";
+  | "BottomCarousalEdit"
+    "FeaturedCategory";
 
 /* ---------- MENU ---------- */
 const MENU_ITEMS = [

@@ -9,6 +9,8 @@ import ProductEdit from "../options/ProductEdit";
 import CategoryAdd from "../options/CategoryAdd";
 import CategoryEdit from "../options/CategoryEdit";
 import FeaturedCategory from "../options/FeaturedCategory";
+import HeroVideo from "../options/HeroVideo";
+import BottomCarousal from "../options/BottomCarousal";
 
 // Placeholder components for other pages
 const PlaceholderComponent: React.FC<{ title: string }> = ({ title }) => (
@@ -36,9 +38,9 @@ export default function Display() {
       case 'UsersManagement':
         return <PlaceholderComponent title="Manage Users" />;
       case 'HeroVideoEdit':
-        return <PlaceholderComponent title="Edit Hero Video" />;
+        return <HeroVideo/>;
       case 'BottomCarousalEdit':
-        return <PlaceholderComponent title="Edit Bottom Carousal" />;
+        return <BottomCarousal/>;
       default:
         return <PlaceholderComponent title="Admin Dashboard" />;
     }
