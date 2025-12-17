@@ -1,10 +1,10 @@
 "use client";
 
-import React, { useState, useEffect, useRef, useCallback } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import Image from "next/image";
 import { 
   Plus, X, Bold, Italic, List, ListOrdered, 
-  Loader2, ArrowLeft, Save, Trash2, Upload, ImageIcon 
+  Loader2, ArrowLeft, Save, Trash2, Upload, AlertCircle 
 } from "lucide-react";
 
 // --- Types ---
@@ -21,6 +21,41 @@ interface Category {
   priority: number | "";
 }
 
+// --- Reusable Modal Component ---
+const DeleteModal = ({ isOpen, onClose, onConfirm, title, isLoading }: any) => {
+  if (!isOpen) return null;
+  return (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+      <div className="bg-white w-full max-w-sm p-8 shadow-2xl border border-gray-100">
+        <div className="flex flex-col items-center text-center">
+          <div className="w-12 h-12 bg-red-50 rounded-full flex items-center justify-center mb-4 text-red-500">
+            <AlertCircle size={24} />
+          </div>
+          <h3 className="text-[10px] uppercase tracking-[0.2em] font-bold text-gray-900 mb-2">Delete Category?</h3>
+          <p className="text-xs text-gray-500 leading-relaxed mb-8 uppercase tracking-tighter">
+            Are you sure you want to delete <span className="font-bold text-black italic">"{title}"</span>? This action cannot be undone.
+          </p>
+          <div className="flex w-full gap-3">
+            <button 
+              onClick={onClose}
+              className="flex-1 py-3 border border-gray-200 text-[10px] font-bold uppercase tracking-widest hover:bg-gray-50 transition"
+            >
+              No, Cancel
+            </button>
+            <button 
+              onClick={onConfirm}
+              disabled={isLoading}
+              className="flex-1 py-3 bg-red-600 text-white text-[10px] font-bold uppercase tracking-widest hover:bg-red-700 transition flex items-center justify-center disabled:bg-red-300"
+            >
+              {isLoading ? <Loader2 className="animate-spin" size={14} /> : "Yes, Delete"}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 const InputGroup: React.FC<{ label: string; children: React.ReactNode; required?: boolean }> = ({ label, children, required = false }) => (
   <div className="border border-gray-300 p-4 bg-white shadow-sm">
     <label className="block text-[10px] uppercase tracking-widest font-bold text-gray-500 mb-2">
@@ -31,18 +66,19 @@ const InputGroup: React.FC<{ label: string; children: React.ReactNode; required?
 );
 
 export default function CategoryEdit() {
-  // Navigation & Data State
   const [categories, setCategories] = useState<Category[]>([]);
   const [editingCategory, setEditingCategory] = useState<Category | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  // Deletion State
+  const [categoryToDelete, setCategoryToDelete] = useState<Category | null>(null);
 
   // Form State
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [priority, setPriority] = useState<string>("");
-  
-  // Image Logic
   const [existingImages, setExistingImages] = useState<Media[]>([]);
   const [deleteIndexes, setDeleteIndexes] = useState<number[]>([]);
   const [replaceIndexes, setReplaceIndexes] = useState<number[]>([]);
@@ -50,7 +86,6 @@ export default function CategoryEdit() {
 
   const descriptionRef = useRef<HTMLDivElement>(null);
 
-  // --- Fetch Categories ---
   useEffect(() => {
     fetchInitialData();
   }, []);
@@ -68,7 +103,26 @@ export default function CategoryEdit() {
     }
   };
 
-  // --- Select Category for Editing ---
+  const handleDelete = async () => {
+    if (!categoryToDelete) return;
+    setIsDeleting(true);
+    try {
+      const res = await fetch(`/api/categories/${categoryToDelete._id}`, {
+        method: "DELETE",
+      });
+      if (res.ok) {
+        setCategories(categories.filter(c => c._id !== categoryToDelete._id));
+        setCategoryToDelete(null);
+      } else {
+        alert("Failed to delete category");
+      }
+    } catch (err) {
+      alert("An error occurred during deletion");
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
   const handleEditClick = (cat: Category) => {
     setEditingCategory(cat);
     setTitle(cat.title || "");
@@ -86,7 +140,6 @@ export default function CategoryEdit() {
     }, 0);
   };
 
-  // --- Rich Text Handlers ---
   const applyFormat = (cmd: string) => {
     document.execCommand(cmd, false, undefined);
     if (descriptionRef.current) {
@@ -94,27 +147,21 @@ export default function CategoryEdit() {
     }
   };
 
-  // --- Image Handlers ---
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>, replaceIdx?: number) => {
     const files = Array.from(e.target.files || []);
     if (files.length === 0) return;
-
     if (replaceIdx !== undefined) {
-      // Logic for replacing specific index
       setReplaceIndexes(prev => [...prev, replaceIdx]);
       setNewFiles(prev => [...prev, files[0]]);
     } else {
-      // Logic for appending new images
       setNewFiles(prev => [...prev, ...files]);
     }
   };
 
-  // --- Update Handler ---
   const handleUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingCategory) return;
     setIsSaving(true);
-
     try {
       const formData = new FormData();
       formData.append("title", title);
@@ -157,15 +204,40 @@ export default function CategoryEdit() {
         <h1 className="text-sm tracking-widest font-bold mb-8 uppercase text-gray-500">Select Category to Edit</h1>
         <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-8 text-center">
           {categories.map((cat) => (
-            <div key={cat._id} onClick={() => handleEditClick(cat)} className="group cursor-pointer">
-              <div className="relative aspect-[3/4] overflow-hidden bg-gray-100 mb-2">
-                <Image src={cat.images?.[0]?.url || ""} alt="" fill className="object-cover group-hover:scale-105 transition duration-500" />
+            <div key={cat._id} className="group relative">
+              {/* DELETE OVERLAY (Only visible on hover) */}
+              <button 
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setCategoryToDelete(cat);
+                }}
+                className="absolute top-2 right-2 z-10 p-2 bg-white text-red-600 shadow-xl opacity-0 group-hover:opacity-100 hover:bg-red-600 hover:text-white transition-all duration-300"
+              >
+                <Trash2 size={14} />
+              </button>
+
+              <div 
+                onClick={() => handleEditClick(cat)} 
+                className="cursor-pointer"
+              >
+                <div className="relative aspect-[3/4] overflow-hidden bg-gray-100 mb-2">
+                  <Image src={cat.images?.[0]?.url || ""} alt="" fill className="object-cover group-hover:scale-105 transition duration-500" />
+                </div>
+                <p className="text-[10px] tracking-widest font-bold uppercase truncate px-2">{cat.title}</p>
+                <p className="text-[9px] text-gray-400 mt-1 uppercase tracking-tighter">Priority: {cat.priority || "N/A"}</p>
               </div>
-              <p className="text-[10px] tracking-widest font-bold uppercase truncate px-2">{cat.title}</p>
-              <p className="text-[9px] text-gray-400 mt-1 uppercase tracking-tighter">Priority: {cat.priority || "N/A"}</p>
             </div>
           ))}
         </div>
+
+        {/* Delete Confirmation Modal */}
+        <DeleteModal 
+          isOpen={!!categoryToDelete}
+          onClose={() => setCategoryToDelete(null)}
+          onConfirm={handleDelete}
+          title={categoryToDelete?.title}
+          isLoading={isDeleting}
+        />
       </div>
     );
   }
@@ -181,10 +253,7 @@ export default function CategoryEdit() {
       </button>
 
       <form onSubmit={handleUpdate} className="flex flex-col lg:flex-row gap-8 items-start">
-        
-        {/* LEFT COLUMN: FIELDS AND IMAGES */}
         <div className="flex-1 space-y-5 w-full">
-          
           <InputGroup label="Category Title" required>
             <input 
               value={title} 
@@ -238,19 +307,16 @@ export default function CategoryEdit() {
           </InputGroup>
         </div>
 
-        {/* RIGHT COLUMN: STICKY DESCRIPTION & ACTION */}
         <div className="w-full lg:w-[450px] sticky top-24">
           <div className="flex flex-col">
             <div className="border border-gray-300 p-4 bg-white shadow-sm h-full">
               <label className="block text-[10px] uppercase tracking-widest font-bold text-gray-500 mb-2">Description *</label>
-              
               <div className="flex gap-1 mb-3 p-1 border border-gray-200 bg-gray-50">
                 <button type="button" onClick={() => applyFormat('bold')} className="p-2 hover:bg-amber-100 transition"><Bold size={16}/></button>
                 <button type="button" onClick={() => applyFormat('italic')} className="p-2 hover:bg-amber-100 transition"><Italic size={16}/></button>
                 <button type="button" onClick={() => applyFormat('insertUnorderedList')} className="p-2 hover:bg-amber-100 transition"><List size={16}/></button>
                 <button type="button" onClick={() => applyFormat('insertOrderedList')} className="p-2 hover:bg-amber-100 transition"><ListOrdered size={16}/></button>
               </div>
-
               <div 
                 ref={descriptionRef} 
                 contentEditable 
@@ -269,7 +335,6 @@ export default function CategoryEdit() {
             </button>
           </div>
         </div>
-
       </form>
     </div>
   );

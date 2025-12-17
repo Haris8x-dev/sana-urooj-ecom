@@ -168,50 +168,63 @@ export default function ProductEdit() {
     }
   };
 
-  const handleUpdate = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!editingProduct) return;
-    setIsSaving(true);
+// Inside ProductEdit.tsx -> handleUpdate function
+const handleUpdate = async (e: React.FormEvent) => {
+  e.preventDefault();
+  if (!editingProduct) return;
+  setIsSaving(true);
 
-    try {
-      const formData = new FormData();
-      formData.append("title", title);
-      formData.append("description", description);
-      formData.append("price", price);
+  try {
+    const formData = new FormData();
+    formData.append("title", title);
+    formData.append("description", description);
+    formData.append("price", price);
+    
+    // --- CATEGORY FIX START ---
+    if (category === "" || !category) {
+      // This matches your backend logic: if removeCategory is true, category becomes null
+      formData.append("removeCategory", "true");
+    } else {
       formData.append("category", category);
-      formData.append("gender", gender);
-      formData.append("priority", priority);
-      formData.append("cartLimit", cartLimit);
-      formData.append("sizes", JSON.stringify(sizes));
-      formData.append("deleteIndexes", JSON.stringify(deleteIndexes));
-      formData.append("replaceIndexes", JSON.stringify(replaceIndexes));
-      newFiles.forEach(file => formData.append("images", file));
-
-      const res = await fetch(`/api/products/${editingProduct._id}`, {
-        method: "PATCH",
-        body: formData,
-      });
-
-      if (res.ok) {
-        alert("Product updated!");
-        setEditingProduct(null);
-        fetchInitialData();
-      } else {
-        const err = await res.json();
-        alert(err.error || "Update failed");
-      }
-    } catch (err) {
-      alert("Error saving product");
-    } finally {
-      setIsSaving(false);
+      formData.append("removeCategory", "false");
     }
-  };
+    // --- CATEGORY FIX END ---
+
+    formData.append("gender", gender);
+    formData.append("priority", priority);
+    formData.append("cartLimit", cartLimit);
+    formData.append("sizes", JSON.stringify(sizes));
+    formData.append("deleteIndexes", JSON.stringify(deleteIndexes));
+    formData.append("replaceIndexes", JSON.stringify(replaceIndexes));
+    newFiles.forEach(file => formData.append("images", file));
+
+    const res = await fetch(`/api/products/${editingProduct._id}`, {
+      method: "PATCH",
+      body: formData,
+    });
+
+    if (res.ok) {
+      alert("Product updated successfully!");
+      setEditingProduct(null);
+      fetchInitialData();
+    } else {
+      const err = await res.json();
+      alert(err.error || "Update failed");
+    }
+  } catch (err) {
+    alert("Error saving product");
+  } finally {
+    setIsSaving(false);
+  }
+};
+
 
   if (isLoading) return (
     <div className="flex h-96 items-center justify-center">
       <Loader2 className="animate-spin text-amber-500" size={40} />
     </div>
   );
+
 
   if (!editingProduct) {
     return (
@@ -294,19 +307,20 @@ export default function ProductEdit() {
           </div>
 
           <div className="grid grid-cols-2 gap-4">
-            <InputGroup label="Category">
-              <select value={category} onChange={(e) => setCategory(e.target.value)} className="w-full border border-gray-300 p-2.5 outline-none bg-white">
-                <option value="">No Category</option>
-                {categories?.map(cat => <option key={cat._id} value={cat._id}>{cat.title}</option>)}
-              </select>
-            </InputGroup>
-            <InputGroup label="Gender">
-              <select value={gender} onChange={(e) => setGender(e.target.value)} className="w-full border border-gray-300 p-2.5 outline-none bg-white">
-                <option value="">Select Gender</option>
-                <option value="Male">Male</option>
-                <option value="Female">Female</option>
-              </select>
-            </InputGroup>
+<InputGroup label="Category">
+  <select 
+    value={category || ""} 
+    onChange={(e) => setCategory(e.target.value)} 
+    className="w-full border border-gray-300 p-2.5 outline-none bg-white cursor-pointer"
+  >
+    <option value="">No Category (Unassign)</option>
+    {categories?.map(cat => (
+      <option key={cat._id} value={cat._id}>
+        {cat.title}
+      </option>
+    ))}
+  </select>
+</InputGroup>
           </div>
 
           <InputGroup label="Sizes & Inventory">

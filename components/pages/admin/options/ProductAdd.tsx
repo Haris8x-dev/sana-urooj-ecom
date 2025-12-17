@@ -24,7 +24,7 @@ interface Category {
   priority?: number;
 }
 
-// --- Reusable Components (for cleaner form structure) ---
+// --- Reusable Components ---
 
 interface InputGroupProps {
   label: string;
@@ -49,7 +49,7 @@ export default function ProductAdd() {
   const [price, setPrice] = useState<number | string>("");
   const [priority, setPriority] = useState<number | string>("");
   const [cartLimit, setCartLimit] = useState<number | string>("");
-  const [category, setCategory] = useState("");
+  const [category, setCategory] = useState(""); // Defaults to empty (None)
   const [categories, setCategories] = useState<Category[]>([]);
   const [loadingCategories, setLoadingCategories] = useState(true);
   const [gender, setGender] = useState<"Male" | "Female" | "">("");
@@ -65,51 +65,38 @@ export default function ProductAdd() {
 
   // --- Data Fetching ---
 
-useEffect(() => {
-    const fetchCategories = async () => {
-      try {
-        setLoadingCategories(true);
-        const response = await fetch('/api/categories/get'); 
-        // Ensure a successful HTTP status before processing
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        
-        const data = await response.json();
+  useEffect(() => {
+    const fetchCategories = async () => {
+      try {
+        setLoadingCategories(true);
+        const response = await fetch('/api/categories/get'); 
+        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+        
+        const data = await response.json();
+        let fetchedCategories: Category[] = [];
 
-        let fetchedCategories: Category[] = [];
+        if (data && Array.isArray(data.categories)) {
+          fetchedCategories = data.categories;
+        } else if (Array.isArray(data)) {
+          fetchedCategories = data;
+        }
 
-        // 1. Check if the response is an object with a 'categories' key (your current assumption)
-        if (data && Array.isArray(data.categories)) {
-          fetchedCategories = data.categories;
-        } 
-        // 2. Check if the response is the array of categories itself (the likely actual structure)
-        else if (Array.isArray(data)) {
-          fetchedCategories = data;
-        }
+        setCategories(fetchedCategories);
+        // REMOVED: Logic that auto-selected fetchedCategories[0]
+      } catch (error) {
+        console.error('Error fetching categories:', error);
+        setCategories([]);
+      } finally {
+        setLoadingCategories(false);
+      }
+    };
 
-        setCategories(fetchedCategories);
-        // Set the first category as default if available
-        if (fetchedCategories.length > 0) {
-          setCategory(fetchedCategories[0]._id);
-        }
-      } catch (error) {
-        console.error('Error fetching categories:', error);
-        // Optionally show an error message to the user
-        setCategories([]); // Set to empty on error
-      } finally {
-        setLoadingCategories(false);
-      }
-    };
-
-    fetchCategories();
-  }, []); // Run only once on mount
+    fetchCategories();
+  }, []);
 
   // --- Rich Text Editor Handlers ---
 
   const applyFormat = useCallback((command: string) => {
-    // Check if the command is supported (e.g., in a secure way)
-    // document.execCommand is deprecated but still widely used for simple editors
     document.execCommand(command, false, undefined);
     descriptionRef.current?.focus();
   }, []);
@@ -131,22 +118,14 @@ useEffect(() => {
   };
 
   const handleSizeChange = (index: number, field: keyof SizeInput, value: string | number) => {
-    const newSizes = sizes.map((size, i) => {
-      if (i === index) {
-        return { ...size, [field]: value };
-      }
-      return size;
-    });
+    const newSizes = sizes.map((size, i) => (i === index ? { ...size, [field]: value } : size));
     setSizes(newSizes);
   };
 
   const handleAddAddOn = (sizeIndex: number) => {
     setSizes(prevSizes => prevSizes.map((size, i) => {
       if (i === sizeIndex) {
-        return {
-          ...size,
-          addOns: [...size.addOns, { detail: "", priceAdjustment: "" }],
-        };
+        return { ...size, addOns: [...size.addOns, { detail: "", priceAdjustment: "" }] };
       }
       return size;
     }));
@@ -155,10 +134,7 @@ useEffect(() => {
   const handleRemoveAddOn = (sizeIndex: number, addOnIndex: number) => {
     setSizes(prevSizes => prevSizes.map((size, i) => {
       if (i === sizeIndex) {
-        return {
-          ...size,
-          addOns: size.addOns.filter((_, j) => j !== addOnIndex),
-        };
+        return { ...size, addOns: size.addOns.filter((_, j) => j !== addOnIndex) };
       }
       return size;
     }));
@@ -169,12 +145,7 @@ useEffect(() => {
       if (i === sizeIndex) {
         return {
           ...size,
-          addOns: size.addOns.map((addOn, j) => {
-            if (j === addOnIndex) {
-              return { ...addOn, [field]: value };
-            }
-            return addOn;
-          }),
+          addOns: size.addOns.map((addOn, j) => (j === addOnIndex ? { ...addOn, [field]: value } : addOn)),
         };
       }
       return size;
@@ -183,10 +154,9 @@ useEffect(() => {
   
   // --- Submission Handler ---
   
- const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    // Basic validation for description
     if (!description || description === '<p className="text-gray-400">Start typing your product description here...</p>') {
       alert("Please enter a product description.");
       return;
@@ -196,41 +166,31 @@ useEffect(() => {
 
     try {
       const formData = new FormData();
-
-      // Append simple text fields
       formData.append("title", title);
       formData.append("description", description);
       formData.append("price", price.toString());
       formData.append("priority", priority.toString());
       formData.append("cartLimit", cartLimit.toString());
+      
+      // If category is empty string, backend should handle it as unassigned/null
       formData.append("category", category);
       formData.append("gender", gender);
 
-      // Append sizes as a JSON string (Backend expects this)
       const filteredSizes = sizes.filter(s => s.name && s.quantity !== "");
       formData.append("sizes", JSON.stringify(filteredSizes));
 
-      // Append images
-      images.forEach((file) => {
-        formData.append("images", file);
-      });
+      images.forEach((file) => formData.append("images", file));
+      if (videoFile) formData.append("videoFile", videoFile);
 
-      // Append video if exists
-      if (videoFile) {
-        formData.append("videoFile", videoFile);
-      }
-
-      // API Call
-      const response = await fetch("/api/products/add", { // Ensure this matches your route path
+      const response = await fetch("/api/products/add", {
         method: "POST",
-        body: formData, // Do not set Content-Type header; the browser will set it with the boundary
+        body: formData,
       });
 
       const result = await response.json();
 
       if (response.ok) {
         alert("Product created successfully!");
-        // Optional: Reset form or redirect
         window.location.reload(); 
       } else {
         alert(`Error: ${result.error || "Failed to create product"}`);
@@ -249,13 +209,12 @@ useEffect(() => {
     <select
       value={category}
       onChange={(e) => setCategory(e.target.value)}
-      className="w-full text-black border border-gray-300 rounded-md shadow-sm p-2.5 focus:ring-2 focus:ring-amber-300 focus:border-amber-300 bg-white outline-none appearance-none"
-      required
+      className="w-full text-black border border-gray-300 rounded-md shadow-sm p-2.5 focus:ring-2 focus:ring-amber-300 focus:border-amber-300 bg-white outline-none appearance-none cursor-pointer"
       disabled={loadingCategories}
     >
-      <option value="" disabled>
-        {loadingCategories ? "Loading categories..." : "Select Category"}
-      </option>
+      {/* Default None Option */}
+      <option value="">None (No Category)</option>
+      
       {categories.map((cat) => (
         <option key={cat._id} value={cat._id}>
           {cat.title}
@@ -268,10 +227,8 @@ useEffect(() => {
     <div className="w-full px-6 py-6">
       <form onSubmit={handleSubmit} className="flex gap-6">
         
-        {/* LEFT COLUMN - All Form Fields */}
+        {/* LEFT COLUMN */}
         <div className="w-1/2 space-y-5">
-          
-          {/* Title */}
           <InputGroup label="Title" required>
             <input
               type="text"
@@ -283,7 +240,6 @@ useEffect(() => {
             />
           </InputGroup>
 
-          {/* Price */}
           <InputGroup label="Price (Rs)" required>
             <input
               type="number"
@@ -296,14 +252,12 @@ useEffect(() => {
             />
           </InputGroup>
 
-          {/* Priority, Cart Limit, Category, Gender */}
           <div className="border border-gray-300 rounded-lg p-4 space-y-4 bg-white shadow-sm">
             <h3 className="text-base font-semibold text-gray-800 border-b border-gray-200 pb-2 mb-4">
                 Product Details
             </h3>
             
             <div className="grid grid-cols-2 gap-4">
-                {/* Priority */}
                 <div>
                     <label className="block text-sm font-semibold text-gray-700 mb-2">Priority (1 = Highest)</label>
                     <input
@@ -316,7 +270,6 @@ useEffect(() => {
                     />
                 </div>
                 
-                {/* Cart Limit */}
                 <div>
                     <label className="block text-sm font-semibold text-gray-700 mb-2">Cart Limit <span className="text-red-500">*</span></label>
                     <input
@@ -333,20 +286,13 @@ useEffect(() => {
 
             {/* Category */}
             <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">Category <span className="text-red-500">*</span></label>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">Category</label>
               {loadingCategories ? (
                 <div className="flex items-center text-gray-500 p-2.5 border border-gray-300 rounded-md">
                     <Loader2 size={16} className="animate-spin mr-2" />
-                    <span>Loading categories...</span>
+                    <span>Loading...</span>
                 </div>
-              ) : (
-                <>
-                  {renderCategoryDropdown}
-                  {categories.length === 0 && (
-                    <p className="text-xs text-red-500 mt-1">No categories found. Please create categories first.</p>
-                  )}
-                </>
-              )}
+              ) : renderCategoryDropdown}
             </div>
 
             {/* Gender */}
@@ -365,8 +311,7 @@ useEffect(() => {
             </div>
           </div>
           
-          {/* Product Sizes & Inventory */}
-          <InputGroup label="Product Sizes & Inventory (JSON Structure)">
+          <InputGroup label="Product Sizes & Inventory">
             <div className="flex justify-end items-center mb-4">
               <button
                 type="button"
@@ -398,7 +343,7 @@ useEffect(() => {
                         type="text"
                         value={size.name}
                         onChange={(e) => handleSizeChange(sizeIndex, 'name', e.target.value)}
-                        placeholder="e.g., S, M, 32"
+                        placeholder="e.g., S, M"
                         className="block w-full border border-gray-300 rounded-md p-2 text-sm outline-none focus:ring-1 focus:ring-amber-300 bg-white"
                         required
                       />
@@ -417,10 +362,9 @@ useEffect(() => {
                     </div>
                   </div>
 
-                  {/* Add-ons Sub-section */}
                   <div className="p-3 border border-dashed border-gray-300 rounded-md bg-white">
                     <div className="flex justify-between items-center mb-2">
-                      <h5 className="text-xs font-semibold text-gray-600">Add-Ons (Optional Price Adjustments)</h5>
+                      <h5 className="text-xs font-semibold text-gray-600">Add-Ons</h5>
                       <button
                         type="button"
                         onClick={() => handleAddAddOn(sizeIndex)}
@@ -436,7 +380,7 @@ useEffect(() => {
                             type="text"
                             value={addOn.detail}
                             onChange={(e) => handleAddOnChange(sizeIndex, addOnIndex, 'detail', e.target.value)}
-                            placeholder="Detail (e.g., Custom Engraving)"
+                            placeholder="Detail"
                             className="grow border border-gray-300 rounded p-1.5 text-xs outline-none focus:ring-1 focus:ring-amber-300"
                             required
                           />
@@ -444,8 +388,7 @@ useEffect(() => {
                             type="number"
                             value={addOn.priceAdjustment}
                             onChange={(e) => handleAddOnChange(sizeIndex, addOnIndex, 'priceAdjustment', e.target.value)}
-                            placeholder="Price (Rs)"
-                            min="0"
+                            placeholder="Rs"
                             className="w-24 border border-gray-300 rounded p-1.5 text-xs outline-none focus:ring-1 focus:ring-amber-300"
                             required
                           />
@@ -458,9 +401,6 @@ useEffect(() => {
                           </button>
                         </div>
                       ))}
-                      {size.addOns.length === 0 && (
-                        <p className="text-xs text-gray-400 italic">No add-ons for this size.</p>
-                      )}
                     </div>
                   </div>
                 </div>
@@ -468,13 +408,10 @@ useEffect(() => {
             </div>
           </InputGroup>
 
-          {/* Media Uploads */}
           <InputGroup label="Product Media">
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Images (1-12 files) <span className="text-red-500">*</span>
-                </label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Images <span className="text-red-500">*</span></label>
                 <input
                   type="file"
                   onChange={(e) => setImages(Array.from(e.target.files || []))}
@@ -483,93 +420,43 @@ useEffect(() => {
                   className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded file:border file:border-gray-300 file:text-sm file:font-semibold file:bg-gray-100 file:text-gray-700 hover:file:bg-gray-200"
                   required
                 />
-                {images.length > 0 && (
-                  <p className="text-xs text-gray-500 mt-1">{images.length} file(s) selected</p>
-                )}
               </div>
               
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Video (Optional, Max 1)
-                </label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Video (Optional)</label>
                 <input
                   type="file"
                   onChange={(e) => setVideoFile(e.target.files ? e.target.files[0] : null)}
                   accept="video/*"
                   className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded file:border file:border-gray-300 file:text-sm file:font-semibold file:bg-gray-100 file:text-gray-700 hover:file:bg-gray-200"
                 />
-                {videoFile && (
-                  <p className="text-xs text-gray-500 mt-1">Selected: {videoFile.name}</p>
-                )}
               </div>
             </div>
           </InputGroup>
           
-          {/* Submit Button */}
           <div className="pt-2">
-     <button
-  type="submit"
-  disabled={isSubmitting}
-  className={`w-full py-3 px-4 border border-transparent rounded-md shadow-lg text-sm font-semibold text-white transition-colors flex justify-center items-center ${
-    isSubmitting ? "bg-indigo-400 cursor-not-allowed" : "bg-indigo-600 hover:bg-indigo-700"
-  }`}
->
-  {isSubmitting ? (
-    <>
-      <Loader2 size={18} className="animate-spin mr-2" />
-      Uploading...
-    </>
-  ) : (
-    "Create Product"
-  )}
-</button>
+            <button
+              type="submit"
+              disabled={isSubmitting}
+              className={`w-full py-3 px-4 border border-transparent rounded-md shadow-lg text-sm font-semibold text-white transition-colors flex justify-center items-center ${
+                isSubmitting ? "bg-indigo-400 cursor-not-allowed" : "bg-indigo-600 hover:bg-indigo-700"
+              }`}
+            >
+              {isSubmitting ? <><Loader2 size={18} className="animate-spin mr-2" /> Uploading...</> : "Create Product"}
+            </button>
           </div>
         </div>
 
-        {/* RIGHT COLUMN - Description with Rich Text Editor */}
+        {/* RIGHT COLUMN */}
         <div className="w-1/2">
           <div className="border border-gray-300 rounded-lg p-4 sticky top-4 bg-white shadow-sm">
-            <label className="block text-sm font-semibold text-gray-700 mb-2">
-              Description <span className="text-red-500">*</span>
-            </label>
-            
-            {/* Rich Text Toolbar */}
+            <label className="block text-sm font-semibold text-gray-700 mb-2">Description <span className="text-red-500">*</span></label>
             <div className="flex gap-2 mb-3 p-2 border border-gray-300 rounded-md bg-gray-50">
-              <button
-                type="button"
-                onClick={() => applyFormat('bold')}
-                className="p-2 hover:bg-gray-200 rounded transition"
-                title="Bold"
-              >
-                <Bold size={18} />
-              </button>
-              <button
-                type="button"
-                onClick={() => applyFormat('italic')}
-                className="p-2 hover:bg-gray-200 rounded transition"
-                title="Italic"
-              >
-                <Italic size={18} />
-              </button>
-              <button
-                type="button"
-                onClick={() => applyFormat('insertUnorderedList')}
-                className="p-2 hover:bg-gray-200 rounded transition"
-                title="Bullet List"
-              >
-                <List size={18} />
-              </button>
-              <button
-                type="button"
-                onClick={() => applyFormat('insertOrderedList')}
-                className="p-2 hover:bg-gray-200 rounded transition"
-                title="Numbered List"
-              >
-                <ListOrdered size={18} />
-              </button>
+              <button type="button" onClick={() => applyFormat('bold')} className="p-2 hover:bg-gray-200 rounded transition"><Bold size={18} /></button>
+              <button type="button" onClick={() => applyFormat('italic')} className="p-2 hover:bg-gray-200 rounded transition"><Italic size={18} /></button>
+              <button type="button" onClick={() => applyFormat('insertUnorderedList')} className="p-2 hover:bg-gray-200 rounded transition"><List size={18} /></button>
+              <button type="button" onClick={() => applyFormat('insertOrderedList')} className="p-2 hover:bg-gray-200 rounded transition"><ListOrdered size={18} /></button>
             </div>
-            
-            {/* Editable Content Area */}
             <div
               ref={descriptionRef}
               contentEditable
@@ -580,10 +467,6 @@ useEffect(() => {
             >
               <p className="text-gray-400">Start typing your product description here...</p>
             </div>
-            
-            <p className="text-xs text-gray-500 mt-2">
-              Use the toolbar above to format your text with bold, italic, or lists.
-            </p>
           </div>
         </div>
       </form>
