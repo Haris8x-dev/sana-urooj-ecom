@@ -23,8 +23,6 @@ export default function BottomCarousal() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [message, setMessage] = useState({ text: "", type: "" });
 
-  // Refs for replacement and new uploads
-  const fileInputRef = useRef<HTMLInputElement>(null);
   const [pendingChanges, setPendingChanges] = useState<{
     replace: { index: number; file: File }[];
     deleteIndexes: number[];
@@ -64,10 +62,9 @@ export default function BottomCarousal() {
     } else {
       setPendingChanges(prev => ({
         ...prev,
-        newFiles: [...prev.newFiles, ...files].slice(0, MAX_IMAGES - images.length)
+        newFiles: [...prev.newFiles, ...files].slice(0, MAX_IMAGES - (images.length - prev.deleteIndexes.length))
       }));
     }
-    // Clear input value to allow selecting same file again
     e.target.value = "";
   };
 
@@ -87,16 +84,12 @@ export default function BottomCarousal() {
     setMessage({ text: "Processing updates...", type: "info" });
 
     const formData = new FormData();
-    
-    // Sort files according to backend logic: replaced first, then new
     pendingChanges.replace.forEach(r => formData.append("images", r.file));
     pendingChanges.newFiles.forEach(f => formData.append("images", f));
-
     formData.append("replaceIndexes", JSON.stringify(pendingChanges.replace.map(r => r.index)));
     formData.append("deleteIndexes", JSON.stringify(pendingChanges.deleteIndexes));
 
     try {
-      // If images.length is 0, we use POST, otherwise PATCH
       const method = images.length === 0 ? "POST" : "PATCH";
       const res = await fetch("/api/bottom-carousal", {
         method: method,
@@ -106,7 +99,7 @@ export default function BottomCarousal() {
       const result = await res.json();
 
       if (res.ok) {
-        setImages(result.images || result.carousel?.images);
+        setImages(result.images || result.carousel?.images || []);
         setPendingChanges({ replace: [], deleteIndexes: [], newFiles: [] });
         setMessage({ text: "Carousel updated successfully!", type: "success" });
       } else {
@@ -127,17 +120,18 @@ export default function BottomCarousal() {
 
   return (
     <div className="p-4 sm:p-8 max-w-6xl mx-auto space-y-8">
-      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
+      {/* Header Section */}
+      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 border-b border-gray-100 pb-6">
         <div>
           <h1 className="text-sm font-bold uppercase tracking-widest text-gray-800 flex items-center gap-2">
             <ImageIcon size={18} /> Bottom Carousel Management
           </h1>
           <p className="text-[10px] text-gray-400 uppercase tracking-tighter mt-1">
-            Min 1 - Max 5 images. These appear at the bottom of the landing page.
+            Min 1 - Max 5 images. Mobile optimized view enabled.
           </p>
         </div>
         
-        <div className="flex gap-3">
+        <div className="flex gap-2">
             <button 
                 onClick={() => setPendingChanges({ replace: [], deleteIndexes: [], newFiles: [] })}
                 className="px-4 py-2 text-[10px] font-bold uppercase border border-gray-200 hover:bg-gray-50 rounded transition"
@@ -164,15 +158,15 @@ export default function BottomCarousal() {
         </div>
       )}
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-6">
-        {/* Existing & Replaced Images */}
+      {/* Grid Section */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
         {images.map((img, idx) => {
           const isDeleted = pendingChanges.deleteIndexes.includes(idx);
           const replacement = pendingChanges.replace.find(r => r.index === idx);
           
           return (
-            <div key={idx} className={`relative group aspect-[4/5] rounded-xl overflow-hidden border-2 transition-all ${
-                isDeleted ? 'opacity-30 border-red-500 scale-95' : replacement ? 'border-blue-400' : 'border-gray-100'
+            <div key={idx} className={`relative group aspect-4/5 rounded-lg overflow-hidden border-2 transition-all ${
+                isDeleted ? 'opacity-40 border-red-500 scale-95' : replacement ? 'border-blue-400' : 'border-gray-100'
             }`}>
               <img 
                 src={replacement ? URL.createObjectURL(replacement.file) : img.url} 
@@ -180,61 +174,63 @@ export default function BottomCarousal() {
                 className="w-full h-full object-cover"
               />
               
-              {/* Overlay Actions */}
+              {/* Responsive Action Overlay */}
               {!isDeleted && (
-                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-2">
-                    <label className="p-2 bg-white rounded-full cursor-pointer hover:bg-blue-50 text-blue-600 shadow-xl">
-                        <RefreshCcw size={18} />
-                        <input type="file" hidden accept="image/*" onChange={(e) => handleFileSelect(e, 'replace', idx)} />
-                    </label>
-                    <button 
-                        onClick={() => markForDeletion(idx)}
-                        className="p-2 bg-white rounded-full hover:bg-red-50 text-red-600 shadow-xl"
-                    >
-                        <Trash2 size={18} />
-                    </button>
+                <div className="absolute inset-0 bg-black/20 lg:bg-black/40 flex flex-col items-center justify-center gap-3 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity">
+                    <div className="flex gap-2">
+                        <label className="p-3 lg:p-2 bg-white rounded-full cursor-pointer hover:bg-blue-50 text-blue-600 shadow-2xl active:scale-90 transition">
+                            <RefreshCcw size={20} className="lg:w-[18px] lg:h-[18px]" />
+                            <input type="file" hidden accept="image/*" onChange={(e) => handleFileSelect(e, 'replace', idx)} />
+                        </label>
+                        <button 
+                            onClick={() => markForDeletion(idx)}
+                            className="p-3 lg:p-2 bg-white rounded-full hover:bg-red-50 text-red-600 shadow-2xl active:scale-90 transition"
+                        >
+                            <Trash2 size={20} className="lg:w-[18px] lg:h-[18px]" />
+                        </button>
+                    </div>
                 </div>
               )}
 
               {isDeleted && (
-                <div className="absolute inset-0 flex items-center justify-center bg-red-500/10">
+                <div className="absolute inset-0 flex items-center justify-center bg-red-500/20 backdrop-blur-[2px]">
                     <button 
                         onClick={() => setPendingChanges(prev => ({...prev, deleteIndexes: prev.deleteIndexes.filter(i => i !== idx)}))}
-                        className="bg-white px-3 py-1 rounded text-[8px] font-black uppercase tracking-tighter"
+                        className="bg-white px-4 py-2 rounded-full text-[10px] font-black uppercase tracking-tighter shadow-xl active:scale-95 transition"
                     >
-                        Undo Delete
+                        Undo
                     </button>
                 </div>
               )}
               
-              <div className="absolute bottom-2 left-2 px-2 py-0.5 bg-black/50 text-white text-[8px] font-bold rounded">
-                SLOT {idx + 1} {replacement && "(REPLACED)"}
+              <div className="absolute top-2 left-2 px-2 py-0.5 bg-black/60 text-white text-[7px] font-bold rounded uppercase tracking-tighter">
+                Slot {idx + 1} {replacement && "• Edited"}
               </div>
             </div>
           );
         })}
 
-        {/* New Files Pending Upload */}
+        {/* New Pending Uploads */}
         {pendingChanges.newFiles.map((file, idx) => (
-            <div key={`new-${idx}`} className="relative aspect-[4/5] rounded-xl overflow-hidden border-2 border-indigo-400 animate-pulse">
+            <div key={`new-${idx}`} className="relative aspect-4/5 rounded-lg overflow-hidden border-2 border-indigo-400">
                 <img src={URL.createObjectURL(file)} className="w-full h-full object-cover" />
                 <button 
                     onClick={() => setPendingChanges(prev => ({...prev, newFiles: prev.newFiles.filter((_, i) => i !== idx)}))}
-                    className="absolute top-2 right-2 p-1 bg-white rounded-full text-red-500 shadow-lg"
+                    className="absolute top-2 right-2 p-1.5 bg-white rounded-full text-red-500 shadow-lg active:scale-90 transition"
                 >
-                    <X size={14} />
+                    <X size={16} />
                 </button>
-                <div className="absolute bottom-2 left-2 px-2 py-0.5 bg-indigo-600 text-white text-[8px] font-bold rounded uppercase">
-                    New Image
+                <div className="absolute bottom-0 inset-x-0 py-1 bg-indigo-600 text-white text-[8px] font-bold text-center uppercase">
+                    New Slot
                 </div>
             </div>
         ))}
 
-        {/* Add New Slot Button */}
+        {/* Add Button */}
         {(images.length + pendingChanges.newFiles.length - pendingChanges.deleteIndexes.length) < MAX_IMAGES && (
-            <label className="aspect-[4/5] rounded-xl border-2 border-dashed border-gray-200 flex flex-col items-center justify-center cursor-pointer hover:border-indigo-400 hover:bg-indigo-50 transition-all text-gray-400 hover:text-indigo-600">
+            <label className="aspect-4/5 rounded-lg border-2 border-dashed border-gray-200 flex flex-col items-center justify-center cursor-pointer hover:border-indigo-400 hover:bg-indigo-50 transition-all text-gray-400 hover:text-indigo-600 active:bg-gray-100">
                 <Plus size={32} strokeWidth={1} />
-                <span className="text-[10px] font-bold uppercase mt-2 tracking-widest">Add Image</span>
+                <span className="text-[10px] font-bold uppercase mt-2 tracking-widest">Add New</span>
                 <input type="file" hidden accept="image/*" onChange={(e) => handleFileSelect(e, 'new')} />
             </label>
         )}

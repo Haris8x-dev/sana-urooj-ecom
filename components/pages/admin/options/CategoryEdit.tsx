@@ -25,7 +25,7 @@ interface Category {
 const DeleteModal = ({ isOpen, onClose, onConfirm, title, isLoading }: any) => {
   if (!isOpen) return null;
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+    <div className="fixed inset-0 z-100 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
       <div className="bg-white w-full max-w-sm p-8 shadow-2xl border border-gray-100">
         <div className="flex flex-col items-center text-center">
           <div className="w-12 h-12 bg-red-50 rounded-full flex items-center justify-center mb-4 text-red-500">
@@ -241,7 +241,7 @@ export default function CategoryEdit() {
                 onClick={() => handleEditClick(cat)} 
                 className="cursor-pointer"
               >
-                <div className="relative aspect-[3/4] overflow-hidden bg-gray-100 mb-2 border border-transparent group-hover:border-gray-300">
+                <div className="relative aspect-3/4 overflow-hidden bg-gray-100 mb-2 border border-transparent group-hover:border-gray-300">
                   <Image src={cat.images?.[0]?.url || ""} alt="" fill className="object-cover group-hover:scale-105 transition duration-500" />
                 </div>
                 <p className="text-[10px] tracking-widest font-bold uppercase truncate px-2">{cat.title}</p>
@@ -296,7 +296,7 @@ export default function CategoryEdit() {
           <InputGroup label="Images (Max 4)">
             <div className="grid grid-cols-4 gap-3">
               {existingImages.map((img, idx) => (
-                <div key={idx} className={`relative aspect-[3/4] border overflow-hidden group ${deleteIndexes.includes(idx) ? 'opacity-20 grayscale border-red-500' : ''}`}>
+                <div key={idx} className={`relative aspect-3/4 border overflow-hidden group ${deleteIndexes.includes(idx) ? 'opacity-20 grayscale border-red-500' : ''}`}>
                   <Image src={img.url} alt="" fill className="object-cover" />
                   <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition flex items-center justify-center gap-2">
                     <label className="cursor-pointer p-1.5 bg-white text-black hover:bg-amber-300 transition">
