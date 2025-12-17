@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef, useCallback } from "react";
 import Image from "next/image";
 import { 
   Plus, X, Bold, Italic, List, ListOrdered, 
-  Loader2, ArrowLeft, Save, Trash2, Upload
+  Loader2, ArrowLeft, Save, Trash2, Upload, AlertTriangle
 } from "lucide-react";
 
 // --- Type Definitions ---
@@ -38,8 +38,8 @@ interface Product {
 }
 
 const InputGroup: React.FC<{ label: string; children: React.ReactNode; required?: boolean }> = ({ label, children, required = false }) => (
-  <div className="border border-gray-300 rounded-lg p-4 bg-white shadow-sm">
-    <label className="block text-sm font-semibold text-gray-700 mb-2">
+  <div className="border border-gray-300 p-4 bg-white shadow-sm">
+    <label className="block text-xs font-bold uppercase tracking-widest text-gray-500 mb-2">
       {label} {required && <span className="text-red-500">*</span>}
     </label>
     {children}
@@ -52,6 +52,11 @@ export default function ProductEdit() {
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+
+  // Deletion States
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [productToDelete, setProductToDelete] = useState<Product | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   // Form States
   const [title, setTitle] = useState("");
@@ -110,6 +115,34 @@ export default function ProductEdit() {
         descriptionRef.current.innerHTML = product.description || "";
       }
     }, 0);
+  };
+
+  // --- Deletion Logic ---
+  const triggerDelete = (e: React.MouseEvent, product: Product) => {
+    e.stopPropagation(); // Don't trigger edit mode
+    setProductToDelete(product);
+    setShowDeleteModal(true);
+  };
+
+  const confirmDelete = async () => {
+    if (!productToDelete) return;
+    setIsDeleting(true);
+    try {
+      const res = await fetch(`/api/products/${productToDelete._id}`, {
+        method: "DELETE",
+      });
+      if (res.ok) {
+        setShowDeleteModal(false);
+        setProductToDelete(null);
+        fetchInitialData();
+      } else {
+        alert("Failed to delete product");
+      }
+    } catch (err) {
+      alert("Error deleting product");
+    } finally {
+      setIsDeleting(false);
+    }
   };
 
   const applyFormat = (cmd: string) => {
@@ -174,15 +207,60 @@ export default function ProductEdit() {
     }
   };
 
+  if (isLoading) return (
+    <div className="flex h-96 items-center justify-center">
+      <Loader2 className="animate-spin text-amber-500" size={40} />
+    </div>
+  );
+
   if (!editingProduct) {
     return (
-      <div className="p-6">
+      <div className="p-6 relative">
+        {/* DELETE MODAL */}
+        {showDeleteModal && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+            <div className="bg-white max-w-md w-full p-8 border border-gray-200 shadow-2xl">
+              <div className="flex items-center justify-center w-16 h-16 bg-red-50 text-red-600 mb-6 mx-auto">
+                <AlertTriangle size={32} />
+              </div>
+              <h2 className="text-xl font-bold text-center mb-2 uppercase tracking-tight">Confirm Deletion</h2>
+              <p className="text-gray-500 text-center text-sm mb-8 leading-relaxed">
+                Are you sure you want to delete <span className="font-bold text-black">"{productToDelete?.title}"</span>? 
+                This will erase all records, images, and videos from the database permanently.
+              </p>
+              <div className="flex gap-4">
+                <button 
+                  onClick={() => setShowDeleteModal(false)}
+                  className="flex-1 py-3 border border-black text-xs font-bold uppercase tracking-widest hover:bg-gray-100 transition"
+                >
+                  No, Cancel
+                </button>
+                <button 
+                  onClick={confirmDelete}
+                  disabled={isDeleting}
+                  className="flex-1 py-3 bg-red-600 text-white text-xs font-bold uppercase tracking-widest hover:bg-red-700 transition flex items-center justify-center"
+                >
+                  {isDeleting ? <Loader2 className="animate-spin" size={16} /> : "Yes, Delete"}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
         <h1 className="text-sm tracking-widest font-bold mb-8 uppercase text-gray-500">Select Product to Edit</h1>
         <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-8 text-center">
           {products?.map((prod) => (
-            <div key={prod._id} onClick={() => handleEditClick(prod)} className="group cursor-pointer">
-              <div className="relative aspect-[3/4] overflow-hidden bg-gray-100 mb-2">
+            <div key={prod._id} onClick={() => handleEditClick(prod)} className="group cursor-pointer relative">
+              <div className="relative aspect-[3/4] overflow-hidden bg-gray-100 mb-2 border border-transparent group-hover:border-gray-300">
                 <Image src={prod.images?.[0]?.url || ""} alt="" fill className="object-cover group-hover:scale-105 transition duration-500" />
+                
+                {/* Trash Icon for Grid Deletion */}
+                <button 
+                  onClick={(e) => triggerDelete(e, prod)}
+                  className="absolute top-2 right-2 p-2 bg-white/90 text-red-600 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-600 hover:text-white"
+                >
+                  <Trash2 size={16} />
+                </button>
               </div>
               <p className="text-[10px] tracking-widest font-bold uppercase truncate px-2">{prod.title}</p>
               <p className="text-[9px] text-gray-400 mt-1 uppercase tracking-tighter">Rs. {prod.price}</p>
@@ -203,27 +281,27 @@ export default function ProductEdit() {
         {/* LEFT COLUMN */}
         <div className="flex-1 space-y-5 w-full">
           <InputGroup label="Product Title" required>
-            <input value={title} onChange={(e) => setTitle(e.target.value)} className="w-full border border-gray-300 rounded-md p-2.5 outline-none focus:ring-2 focus:ring-amber-300 transition" required />
+            <input value={title} onChange={(e) => setTitle(e.target.value)} className="w-full border border-gray-300 p-2.5 outline-none focus:ring-1 focus:ring-amber-300 transition" required />
           </InputGroup>
 
           <div className="grid grid-cols-2 gap-4">
             <InputGroup label="Price (Rs)" required>
-              <input type="number" value={price} onChange={(e) => setPrice(e.target.value)} className="w-full border border-gray-300 rounded-md p-2.5 outline-none focus:ring-2 focus:ring-amber-300 transition" required />
+              <input type="number" value={price} onChange={(e) => setPrice(e.target.value)} className="w-full border border-gray-300 p-2.5 outline-none focus:ring-1 focus:ring-amber-300 transition" required />
             </InputGroup>
             <InputGroup label="Cart Limit" required>
-              <input type="number" value={cartLimit} onChange={(e) => setCartLimit(e.target.value)} className="w-full border border-gray-300 rounded-md p-2.5 outline-none focus:ring-2 focus:ring-amber-300 transition" required />
+              <input type="number" value={cartLimit} onChange={(e) => setCartLimit(e.target.value)} className="w-full border border-gray-300 p-2.5 outline-none focus:ring-1 focus:ring-amber-300 transition" required />
             </InputGroup>
           </div>
 
           <div className="grid grid-cols-2 gap-4">
             <InputGroup label="Category">
-              <select value={category} onChange={(e) => setCategory(e.target.value)} className="w-full border border-gray-300 rounded-md p-2.5 outline-none bg-white">
+              <select value={category} onChange={(e) => setCategory(e.target.value)} className="w-full border border-gray-300 p-2.5 outline-none bg-white">
                 <option value="">No Category</option>
                 {categories?.map(cat => <option key={cat._id} value={cat._id}>{cat.title}</option>)}
               </select>
             </InputGroup>
             <InputGroup label="Gender">
-              <select value={gender} onChange={(e) => setGender(e.target.value)} className="w-full border border-gray-300 rounded-md p-2.5 outline-none bg-white">
+              <select value={gender} onChange={(e) => setGender(e.target.value)} className="w-full border border-gray-300 p-2.5 outline-none bg-white">
                 <option value="">Select Gender</option>
                 <option value="Male">Male</option>
                 <option value="Female">Female</option>
@@ -237,17 +315,17 @@ export default function ProductEdit() {
             </div>
             <div className="space-y-4">
               {sizes?.map((size, sIdx) => (
-                <div key={sIdx} className="p-4 border border-gray-200 rounded-lg bg-gray-50 relative">
+                <div key={sIdx} className="p-4 border border-gray-200 bg-gray-50 relative">
                   <button type="button" onClick={() => setSizes(sizes.filter((_, i) => i !== sIdx))} className="absolute top-2 right-2 text-red-500"><X size={16}/></button>
                   <div className="grid grid-cols-2 gap-3 mb-4">
-                    <input placeholder="Size Name" value={size.name} onChange={(e) => { const ns = [...sizes]; ns[sIdx].name = e.target.value; setSizes(ns); }} className="border border-gray-300 rounded-md p-2 text-sm outline-none bg-white" />
-                    <input placeholder="Quantity" type="number" value={size.quantity} onChange={(e) => { const ns = [...sizes]; ns[sIdx].quantity = e.target.value; setSizes(ns); }} className="border border-gray-300 rounded-md p-2 text-sm outline-none bg-white" />
+                    <input placeholder="Size Name" value={size.name} onChange={(e) => { const ns = [...sizes]; ns[sIdx].name = e.target.value; setSizes(ns); }} className="border border-gray-300 p-2 text-sm outline-none bg-white" />
+                    <input placeholder="Quantity" type="number" value={size.quantity} onChange={(e) => { const ns = [...sizes]; ns[sIdx].quantity = e.target.value; setSizes(ns); }} className="border border-gray-300 p-2 text-sm outline-none bg-white" />
                   </div>
                   <div className="space-y-2 border-t pt-2">
                     {size.addOns?.map((ao, aIdx) => (
                       <div key={aIdx} className="flex gap-2 items-center">
-                        <input placeholder="Add-on detail" value={ao.detail} onChange={(e) => { const ns = [...sizes]; ns[sIdx].addOns[aIdx].detail = e.target.value; setSizes(ns); }} className="grow border rounded p-1.5 text-xs" />
-                        <input placeholder="Price" type="number" value={ao.priceAdjustment} onChange={(e) => { const ns = [...sizes]; ns[sIdx].addOns[aIdx].priceAdjustment = e.target.value; setSizes(ns); }} className="w-20 border rounded p-1.5 text-xs" />
+                        <input placeholder="Add-on detail" value={ao.detail} onChange={(e) => { const ns = [...sizes]; ns[sIdx].addOns[aIdx].detail = e.target.value; setSizes(ns); }} className="grow border p-1.5 text-xs outline-none" />
+                        <input placeholder="Price" type="number" value={ao.priceAdjustment} onChange={(e) => { const ns = [...sizes]; ns[sIdx].addOns[aIdx].priceAdjustment = e.target.value; setSizes(ns); }} className="w-20 border p-1.5 text-xs outline-none" />
                         <button type="button" onClick={() => { const ns = [...sizes]; ns[sIdx].addOns.splice(aIdx, 1); setSizes(ns); }}><X size={12} /></button>
                       </div>
                     ))}
@@ -261,49 +339,48 @@ export default function ProductEdit() {
           <InputGroup label="Image Management (Replace or Add)">
             <div className="grid grid-cols-4 gap-3">
               {editingProduct.images?.map((img, idx) => (
-                <div key={idx} className={`relative aspect-[3/4] border rounded-md overflow-hidden group ${deleteIndexes.includes(idx) ? 'opacity-20 grayscale border-red-500' : ''}`}>
+                <div key={idx} className={`relative aspect-[3/4] border overflow-hidden group ${deleteIndexes.includes(idx) ? 'opacity-20 grayscale border-red-500' : ''}`}>
                   <Image src={img.url} alt="" fill className="object-cover" />
                   <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition flex items-center justify-center gap-2">
-                    <label className="cursor-pointer p-1 bg-white rounded-full text-black hover:bg-amber-300 transition">
+                    <label className="cursor-pointer p-1.5 bg-white text-black hover:bg-amber-300 transition">
                       <Upload size={14} /><input type="file" className="hidden" onChange={(e) => handleFileChange(e, idx)} />
                     </label>
-                    <button type="button" onClick={() => setDeleteIndexes(prev => prev.includes(idx) ? prev.filter(i => i !== idx) : [...prev, idx])} className="p-1 bg-white rounded-full text-red-600 hover:bg-red-100 transition">
+                    <button type="button" onClick={() => setDeleteIndexes(prev => prev.includes(idx) ? prev.filter(i => i !== idx) : [...prev, idx])} className="p-1.5 bg-white text-red-600 hover:bg-red-50 transition">
                       <Trash2 size={14} />
                     </button>
                   </div>
                 </div>
               ))}
             </div>
-            <div className="mt-4 border-t pt-4">
-              <label className="block text-xs font-bold uppercase mb-2">Add New Images</label>
-              <input type="file" multiple onChange={(e) => handleFileChange(e)} className="text-xs block w-full file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100" />
+            <div className="mt-6 border-t pt-4">
+              <label className="block text-[10px] font-bold uppercase mb-2 text-gray-400">Add New Images</label>
+              <input type="file" multiple onChange={(e) => handleFileChange(e)} className="text-xs block w-full file:mr-4 file:py-2 file:px-4 file:border file:border-black file:text-[10px] file:font-bold file:uppercase file:bg-white file:text-black hover:file:bg-black hover:file:text-white transition cursor-pointer" />
             </div>
           </InputGroup>
         </div>
 
-        {/* RIGHT COLUMN: STICKY DESCRIPTION & SAVE */}
-        <div className="w-full lg:w-[450px] sticky top-36">
+        {/* RIGHT COLUMN */}
+        <div className="w-full lg:w-[450px] sticky top-24">
           <div className="flex flex-col">
-            <div className="border border-gray-300 rounded-lg p-4 bg-white shadow-sm h-full">
-              <label className="block text-sm font-semibold text-gray-700 mb-2">Description *</label>
-              <div className="flex gap-2 mb-3 p-2 border border-gray-300 rounded-md bg-gray-50">
-                <button type="button" onClick={() => applyFormat('bold')} className="p-2 hover:bg-gray-200 rounded transition"><Bold size={18}/></button>
-                <button type="button" onClick={() => applyFormat('italic')} className="p-2 hover:bg-gray-200 rounded transition"><Italic size={18}/></button>
-                <button type="button" onClick={() => applyFormat('insertUnorderedList')} className="p-2 hover:bg-gray-200 rounded transition"><List size={18}/></button>
-                <button type="button" onClick={() => applyFormat('insertOrderedList')} className="p-2 hover:bg-gray-200 rounded transition"><ListOrdered size={18}/></button>
+            <div className="border border-gray-300 p-4 bg-white shadow-sm h-full">
+              <label className="block text-[10px] uppercase tracking-widest font-bold text-gray-500 mb-2">Description *</label>
+              <div className="flex gap-1 mb-3 p-1 border border-gray-200 bg-gray-50">
+                <button type="button" onClick={() => applyFormat('bold')} className="p-2 hover:bg-amber-100 transition"><Bold size={16}/></button>
+                <button type="button" onClick={() => applyFormat('italic')} className="p-2 hover:bg-amber-100 transition"><Italic size={16}/></button>
+                <button type="button" onClick={() => applyFormat('insertUnorderedList')} className="p-2 hover:bg-amber-100 transition"><List size={16}/></button>
               </div>
               <div 
                 ref={descriptionRef} 
                 contentEditable 
                 onInput={handleDescriptionChange} 
-                className="min-h-[400px] max-h-[60vh] border border-gray-300 rounded-md p-3 outline-none focus:ring-2 focus:ring-amber-300 bg-white overflow-y-auto text-sm leading-relaxed" 
+                className="min-h-[400px] max-h-[60vh] border border-gray-300 p-3 outline-none focus:ring-1 focus:ring-amber-300 bg-white overflow-y-auto text-sm leading-relaxed" 
               />
             </div>
 
             <button 
               disabled={isSaving} 
               type="submit"
-              className="w-full mt-5 py-4 bg-black text-white text-xs font-bold uppercase tracking-widest hover:bg-gray-800 transition shadow-xl flex items-center justify-center disabled:bg-gray-400"
+              className="w-full mt-5 py-4 bg-black text-white text-[10px] font-bold uppercase tracking-[0.2em] hover:bg-gray-800 transition shadow-xl flex items-center justify-center disabled:bg-gray-400"
             >
               {isSaving ? <Loader2 className="animate-spin mr-2" size={16} /> : <Save className="mr-2" size={16} />}
               Update Product Information

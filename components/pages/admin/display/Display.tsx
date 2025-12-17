@@ -6,6 +6,9 @@ import React, { useState } from "react";
 import SidePanel, { AdminView } from './SidePanel';
 import ProductAdd from '../options/ProductAdd'; 
 import ProductEdit from "../options/ProductEdit";
+import CategoryAdd from "../options/CategoryAdd";
+import CategoryEdit from "../options/CategoryEdit";
+import FeaturedCategory from "../options/FeaturedCategory";
 
 // Placeholder components for other pages
 const PlaceholderComponent: React.FC<{ title: string }> = ({ title }) => (
@@ -25,9 +28,11 @@ export default function Display() {
       case 'ProductEdit':
         return <ProductEdit/>;
       case 'CategoryAdd':
-        return <PlaceholderComponent title="Add New Category" />;
+        return <CategoryAdd/>;
       case 'CategoryEdit':
-        return <PlaceholderComponent title="Edit/Manage Categories" />;
+        return <CategoryEdit/>;
+      case 'FeaturedCategory':
+        return <FeaturedCategory/>  
       case 'UsersManagement':
         return <PlaceholderComponent title="Manage Users" />;
       case 'HeroVideoEdit':

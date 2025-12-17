@@ -10,6 +10,7 @@ import {
   ChevronRight,
 } from "lucide-react";
 
+
 /* ---------- TYPES ---------- */
 export type AdminView =
   | "ProductAdd"
@@ -36,6 +37,7 @@ const MENU_ITEMS = [
     options: [
       { name: "Add New Category", view: "CategoryAdd" as AdminView },
       { name: "Edit / Manage Categories", view: "CategoryEdit" as AdminView },
+      { name: "Manage F.Category", view: "FeaturedCategory" as AdminView },
     ],
   },
   {
