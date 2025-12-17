@@ -1,10 +1,10 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import Image from "next/image";
 import { 
   Plus, X, Bold, Italic, List, ListOrdered, 
-  Loader2, ArrowLeft, Save, Trash2, Upload, AlertCircle 
+  Loader2, ArrowLeft, Save, Trash2, Upload, AlertCircle, Search 
 } from "lucide-react";
 
 // --- Types ---
@@ -71,6 +71,7 @@ export default function CategoryEdit() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
 
   // Deletion State
   const [categoryToDelete, setCategoryToDelete] = useState<Category | null>(null);
@@ -89,6 +90,13 @@ export default function CategoryEdit() {
   useEffect(() => {
     fetchInitialData();
   }, []);
+
+  // --- Search Logic ---
+  const filteredCategories = useMemo(() => {
+    return categories.filter((cat) =>
+      cat.title.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+  }, [categories, searchQuery]);
 
   const fetchInitialData = async () => {
     setIsLoading(true);
@@ -201,11 +209,24 @@ export default function CategoryEdit() {
   if (!editingCategory) {
     return (
       <div className="p-6">
-        <h1 className="text-sm tracking-widest font-bold mb-8 uppercase text-gray-500">Select Category to Edit</h1>
+        <div className="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-4">
+          <h1 className="text-sm tracking-widest font-bold uppercase text-gray-500">Select Category to Edit</h1>
+          
+          <div className="relative w-full md:w-80">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
+            <input 
+              type="text" 
+              placeholder="SEARCH CATEGORIES..." 
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full bg-white border border-gray-300 pl-10 pr-4 py-2 text-[10px] font-bold uppercase tracking-widest outline-none focus:ring-1 focus:ring-black"
+            />
+          </div>
+        </div>
+
         <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-8 text-center">
-          {categories.map((cat) => (
+          {filteredCategories.map((cat) => (
             <div key={cat._id} className="group relative">
-              {/* DELETE OVERLAY (Only visible on hover) */}
               <button 
                 onClick={(e) => {
                   e.stopPropagation();
@@ -220,7 +241,7 @@ export default function CategoryEdit() {
                 onClick={() => handleEditClick(cat)} 
                 className="cursor-pointer"
               >
-                <div className="relative aspect-[3/4] overflow-hidden bg-gray-100 mb-2">
+                <div className="relative aspect-[3/4] overflow-hidden bg-gray-100 mb-2 border border-transparent group-hover:border-gray-300">
                   <Image src={cat.images?.[0]?.url || ""} alt="" fill className="object-cover group-hover:scale-105 transition duration-500" />
                 </div>
                 <p className="text-[10px] tracking-widest font-bold uppercase truncate px-2">{cat.title}</p>
@@ -230,7 +251,6 @@ export default function CategoryEdit() {
           ))}
         </div>
 
-        {/* Delete Confirmation Modal */}
         <DeleteModal 
           isOpen={!!categoryToDelete}
           onClose={() => setCategoryToDelete(null)}

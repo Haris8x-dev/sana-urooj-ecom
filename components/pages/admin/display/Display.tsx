@@ -11,6 +11,7 @@ import CategoryEdit from "../options/CategoryEdit";
 import FeaturedCategory from "../options/FeaturedCategory";
 import HeroVideo from "../options/HeroVideo";
 import BottomCarousal from "../options/BottomCarousal";
+import UsersManagement from "../options/UsersManagement";
 
 // Placeholder components for other pages
 const PlaceholderComponent: React.FC<{ title: string }> = ({ title }) => (
@@ -36,7 +37,7 @@ export default function Display() {
       case 'FeaturedCategory':
         return <FeaturedCategory/>  
       case 'UsersManagement':
-        return <PlaceholderComponent title="Manage Users" />;
+        return <UsersManagement/>;
       case 'HeroVideoEdit':
         return <HeroVideo/>;
       case 'BottomCarousalEdit':

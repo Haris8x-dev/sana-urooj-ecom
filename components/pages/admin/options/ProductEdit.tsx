@@ -1,10 +1,10 @@
 "use client";
 
-import React, { useState, useEffect, useRef, useCallback } from "react";
+import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import Image from "next/image";
 import { 
   Plus, X, Bold, Italic, List, ListOrdered, 
-  Loader2, ArrowLeft, Save, Trash2, Upload, AlertTriangle
+  Loader2, ArrowLeft, Save, Trash2, Upload, AlertTriangle, Search
 } from "lucide-react";
 
 // --- Type Definitions ---
@@ -52,6 +52,7 @@ export default function ProductEdit() {
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
 
   // Deletion States
   const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -77,6 +78,13 @@ export default function ProductEdit() {
   useEffect(() => {
     fetchInitialData();
   }, []);
+
+  // --- Search Logic ---
+  const filteredProducts = useMemo(() => {
+    return products.filter((prod) =>
+      prod.title.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+  }, [products, searchQuery]);
 
   const fetchInitialData = async () => {
     setIsLoading(true);
@@ -117,9 +125,8 @@ export default function ProductEdit() {
     }, 0);
   };
 
-  // --- Deletion Logic ---
   const triggerDelete = (e: React.MouseEvent, product: Product) => {
-    e.stopPropagation(); // Don't trigger edit mode
+    e.stopPropagation();
     setProductToDelete(product);
     setShowDeleteModal(true);
   };
@@ -168,56 +175,51 @@ export default function ProductEdit() {
     }
   };
 
-// Inside ProductEdit.tsx -> handleUpdate function
-const handleUpdate = async (e: React.FormEvent) => {
-  e.preventDefault();
-  if (!editingProduct) return;
-  setIsSaving(true);
+  const handleUpdate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingProduct) return;
+    setIsSaving(true);
 
-  try {
-    const formData = new FormData();
-    formData.append("title", title);
-    formData.append("description", description);
-    formData.append("price", price);
-    
-    // --- CATEGORY FIX START ---
-    if (category === "" || !category) {
-      // This matches your backend logic: if removeCategory is true, category becomes null
-      formData.append("removeCategory", "true");
-    } else {
-      formData.append("category", category);
-      formData.append("removeCategory", "false");
+    try {
+      const formData = new FormData();
+      formData.append("title", title);
+      formData.append("description", description);
+      formData.append("price", price);
+      
+      if (category === "" || !category) {
+        formData.append("removeCategory", "true");
+      } else {
+        formData.append("category", category);
+        formData.append("removeCategory", "false");
+      }
+
+      formData.append("gender", gender);
+      formData.append("priority", priority);
+      formData.append("cartLimit", cartLimit);
+      formData.append("sizes", JSON.stringify(sizes));
+      formData.append("deleteIndexes", JSON.stringify(deleteIndexes));
+      formData.append("replaceIndexes", JSON.stringify(replaceIndexes));
+      newFiles.forEach(file => formData.append("images", file));
+
+      const res = await fetch(`/api/products/${editingProduct._id}`, {
+        method: "PATCH",
+        body: formData,
+      });
+
+      if (res.ok) {
+        alert("Product updated successfully!");
+        setEditingProduct(null);
+        fetchInitialData();
+      } else {
+        const err = await res.json();
+        alert(err.error || "Update failed");
+      }
+    } catch (err) {
+      alert("Error saving product");
+    } finally {
+      setIsSaving(false);
     }
-    // --- CATEGORY FIX END ---
-
-    formData.append("gender", gender);
-    formData.append("priority", priority);
-    formData.append("cartLimit", cartLimit);
-    formData.append("sizes", JSON.stringify(sizes));
-    formData.append("deleteIndexes", JSON.stringify(deleteIndexes));
-    formData.append("replaceIndexes", JSON.stringify(replaceIndexes));
-    newFiles.forEach(file => formData.append("images", file));
-
-    const res = await fetch(`/api/products/${editingProduct._id}`, {
-      method: "PATCH",
-      body: formData,
-    });
-
-    if (res.ok) {
-      alert("Product updated successfully!");
-      setEditingProduct(null);
-      fetchInitialData();
-    } else {
-      const err = await res.json();
-      alert(err.error || "Update failed");
-    }
-  } catch (err) {
-    alert("Error saving product");
-  } finally {
-    setIsSaving(false);
-  }
-};
-
+  };
 
   if (isLoading) return (
     <div className="flex h-96 items-center justify-center">
@@ -225,11 +227,10 @@ const handleUpdate = async (e: React.FormEvent) => {
     </div>
   );
 
-
+  // --- VIEW 1: PRODUCT SELECTION GRID ---
   if (!editingProduct) {
     return (
       <div className="p-6 relative">
-        {/* DELETE MODAL */}
         {showDeleteModal && (
           <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
             <div className="bg-white max-w-md w-full p-8 border border-gray-200 shadow-2xl">
@@ -239,20 +240,10 @@ const handleUpdate = async (e: React.FormEvent) => {
               <h2 className="text-xl font-bold text-center mb-2 uppercase tracking-tight">Confirm Deletion</h2>
               <p className="text-gray-500 text-center text-sm mb-8 leading-relaxed">
                 Are you sure you want to delete <span className="font-bold text-black">"{productToDelete?.title}"</span>? 
-                This will erase all records, images, and videos from the database permanently.
               </p>
               <div className="flex gap-4">
-                <button 
-                  onClick={() => setShowDeleteModal(false)}
-                  className="flex-1 py-3 border border-black text-xs font-bold uppercase tracking-widest hover:bg-gray-100 transition"
-                >
-                  No, Cancel
-                </button>
-                <button 
-                  onClick={confirmDelete}
-                  disabled={isDeleting}
-                  className="flex-1 py-3 bg-red-600 text-white text-xs font-bold uppercase tracking-widest hover:bg-red-700 transition flex items-center justify-center"
-                >
+                <button onClick={() => setShowDeleteModal(false)} className="flex-1 py-3 border border-black text-xs font-bold uppercase tracking-widest hover:bg-gray-100 transition">No, Cancel</button>
+                <button onClick={confirmDelete} disabled={isDeleting} className="flex-1 py-3 bg-red-600 text-white text-xs font-bold uppercase tracking-widest hover:bg-red-700 transition flex items-center justify-center">
                   {isDeleting ? <Loader2 className="animate-spin" size={16} /> : "Yes, Delete"}
                 </button>
               </div>
@@ -260,14 +251,26 @@ const handleUpdate = async (e: React.FormEvent) => {
           </div>
         )}
 
-        <h1 className="text-sm tracking-widest font-bold mb-8 uppercase text-gray-500">Select Product to Edit</h1>
+        <div className="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-4">
+          <h1 className="text-sm tracking-widest font-bold uppercase text-gray-500">Select Product to Edit</h1>
+          
+          <div className="relative w-full md:w-80">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
+            <input 
+              type="text" 
+              placeholder="SEARCH BY TITLE..." 
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full bg-white border border-gray-300 pl-10 pr-4 py-2 text-[10px] font-bold uppercase tracking-widest outline-none focus:ring-1 focus:ring-black"
+            />
+          </div>
+        </div>
+
         <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-8 text-center">
-          {products?.map((prod) => (
+          {filteredProducts?.map((prod) => (
             <div key={prod._id} onClick={() => handleEditClick(prod)} className="group cursor-pointer relative">
               <div className="relative aspect-[3/4] overflow-hidden bg-gray-100 mb-2 border border-transparent group-hover:border-gray-300">
                 <Image src={prod.images?.[0]?.url || ""} alt="" fill className="object-cover group-hover:scale-105 transition duration-500" />
-                
-                {/* Trash Icon for Grid Deletion */}
                 <button 
                   onClick={(e) => triggerDelete(e, prod)}
                   className="absolute top-2 right-2 p-2 bg-white/90 text-red-600 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-600 hover:text-white"
@@ -284,6 +287,7 @@ const handleUpdate = async (e: React.FormEvent) => {
     );
   }
 
+  // --- VIEW 2: FULL EDIT FORM ---
   return (
     <div className="w-full px-6 py-6 bg-gray-50 min-h-screen">
       <button onClick={() => setEditingProduct(null)} className="flex items-center text-xs font-bold uppercase tracking-widest text-gray-400 hover:text-black mb-6 transition">
@@ -307,20 +311,19 @@ const handleUpdate = async (e: React.FormEvent) => {
           </div>
 
           <div className="grid grid-cols-2 gap-4">
-<InputGroup label="Category">
-  <select 
-    value={category || ""} 
-    onChange={(e) => setCategory(e.target.value)} 
-    className="w-full border border-gray-300 p-2.5 outline-none bg-white cursor-pointer"
-  >
-    <option value="">No Category (Unassign)</option>
-    {categories?.map(cat => (
-      <option key={cat._id} value={cat._id}>
-        {cat.title}
-      </option>
-    ))}
-  </select>
-</InputGroup>
+            <InputGroup label="Category">
+              <select value={category || ""} onChange={(e) => setCategory(e.target.value)} className="w-full border border-gray-300 p-2.5 outline-none bg-white cursor-pointer">
+                <option value="">No Category (Unassign)</option>
+                {categories?.map(cat => <option key={cat._id} value={cat._id}>{cat.title}</option>)}
+              </select>
+            </InputGroup>
+            <InputGroup label="Gender" required>
+              <select value={gender} onChange={(e) => setGender(e.target.value)} className="w-full border border-gray-300 p-2.5 outline-none bg-white cursor-pointer" required>
+                <option value="">Select Gender</option>
+                <option value="Male">Male</option>
+                <option value="Female">Female</option>
+              </select>
+            </InputGroup>
           </div>
 
           <InputGroup label="Sizes & Inventory">
