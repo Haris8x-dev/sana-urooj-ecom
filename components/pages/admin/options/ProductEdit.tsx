@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef, useCallback, useMemo } from "react"
 import Image from "next/image";
 import { 
   Plus, X, Bold, Italic, List, ListOrdered, 
-  Loader2, ArrowLeft, Save, Trash2, Upload, AlertTriangle, Search, Percent
+  Loader2, ArrowLeft, Save, Trash2, Upload, AlertTriangle, Search, Video, Film
 } from "lucide-react";
 
 // --- Type Definitions ---
@@ -34,8 +34,8 @@ interface Product {
   priority: number | "";
   cartLimit: number;
   images: { url: string; fileId: string }[];
+  video?: { url: string; fileId: string } | null; // Added Video type
   sizes: Size[];
-  // Added badges interface
   badges?: {
     saveRs: {
       active: boolean;
@@ -76,13 +76,17 @@ export default function ProductEdit() {
   const [cartLimit, setCartLimit] = useState<string>("1");
   const [sizes, setSizes] = useState<Size[]>([]);
   
-  // NEW: SaveRs Badge States
   const [badgeActive, setBadgeActive] = useState<boolean>(false);
   const [badgeAmount, setBadgeAmount] = useState<string>("0");
   
+  // Media States
   const [deleteIndexes, setDeleteIndexes] = useState<number[]>([]);
   const [replaceIndexes, setReplaceIndexes] = useState<number[]>([]);
   const [newFiles, setNewFiles] = useState<File[]>([]);
+  
+  // NEW: Video States
+  const [newVideoFile, setNewVideoFile] = useState<File | null>(null);
+  const [deleteVideo, setDeleteVideo] = useState<boolean>(false);
 
   const descriptionRef = useRef<HTMLDivElement>(null);
 
@@ -124,14 +128,15 @@ export default function ProductEdit() {
     setPriority(product.priority?.toString() || "");
     setCartLimit(product.cartLimit?.toString() || "1");
     setSizes(product.sizes || []);
-    
-    // NEW: Load existing badge data
     setBadgeActive(product.badges?.saveRs?.active || false);
     setBadgeAmount(product.badges?.saveRs?.amount?.toString() || "0");
 
+    // Reset Media States
     setDeleteIndexes([]);
     setReplaceIndexes([]);
     setNewFiles([]);
+    setNewVideoFile(null);
+    setDeleteVideo(false);
 
     setTimeout(() => {
       if (descriptionRef.current) {
@@ -190,6 +195,15 @@ export default function ProductEdit() {
     }
   };
 
+  // NEW: Video Change Handler
+  const handleVideoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setNewVideoFile(file);
+      setDeleteVideo(false); // If they upload a new one, we aren't "deleting" to null
+    }
+  };
+
   const handleUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingProduct) return;
@@ -200,8 +214,6 @@ export default function ProductEdit() {
       formData.append("title", title);
       formData.append("description", description);
       formData.append("price", price);
-      
-      // NEW: Append Badge data
       formData.append("badgeActive", String(badgeActive));
       formData.append("badgeAmount", badgeAmount);
 
@@ -216,9 +228,17 @@ export default function ProductEdit() {
       formData.append("priority", priority);
       formData.append("cartLimit", cartLimit);
       formData.append("sizes", JSON.stringify(sizes));
+      
+      // Images
       formData.append("deleteIndexes", JSON.stringify(deleteIndexes));
       formData.append("replaceIndexes", JSON.stringify(replaceIndexes));
       newFiles.forEach(file => formData.append("images", file));
+
+      // NEW: Video Data (Matches VIDEO_FIELD_NAME in backend)
+      if (newVideoFile) {
+        formData.append("videoFile", newVideoFile);
+      }
+      formData.append("deleteVideo", String(deleteVideo));
 
       const res = await fetch(`/api/products/${editingProduct._id}`, {
         method: "PATCH",
@@ -246,6 +266,7 @@ export default function ProductEdit() {
     </div>
   );
 
+  // ... Grid View UI (FilteredProducts Map) - Kept identical to your source ...
   if (!editingProduct) {
     return (
       <div className="p-6 relative">
@@ -271,7 +292,6 @@ export default function ProductEdit() {
 
         <div className="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-4">
           <h1 className="text-sm tracking-widest font-bold uppercase text-gray-500">Select Product to Edit</h1>
-          
           <div className="relative w-full md:w-80">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
             <input 
@@ -318,31 +338,15 @@ export default function ProductEdit() {
             <input value={title} onChange={(e) => setTitle(e.target.value)} className="w-full border border-gray-300 p-2.5 outline-none focus:ring-1 focus:ring-amber-300 transition" required />
           </InputGroup>
 
-          {/* --- SAVERS RS DISCOUNT SECTION --- */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
              <InputGroup label="Savers Rs Badge">
                <div className="flex items-center h-10 gap-3">
-                 <input 
-                   type="checkbox" 
-                   id="saversActive"
-                   checked={badgeActive} 
-                   onChange={(e) => setBadgeActive(e.target.checked)} 
-                   className="w-5 h-5 accent-black cursor-pointer"
-                 />
-                 <label htmlFor="saversActive" className="text-[10px] font-bold uppercase cursor-pointer">
-                   {badgeActive ? "Discount Active" : "No Discount Active"}
-                 </label>
+                 <input type="checkbox" id="saversActive" checked={badgeActive} onChange={(e) => setBadgeActive(e.target.checked)} className="w-5 h-5 accent-black cursor-pointer" />
+                 <label htmlFor="saversActive" className="text-[10px] font-bold uppercase cursor-pointer">{badgeActive ? "Discount Active" : "No Discount Active"}</label>
                </div>
              </InputGroup>
              <InputGroup label="Discount Amount (Rs)">
-               <input 
-                 type="number" 
-                 disabled={!badgeActive}
-                 value={badgeAmount} 
-                 onChange={(e) => setBadgeAmount(e.target.value)} 
-                 className={`w-full border p-2.5 outline-none transition text-sm ${!badgeActive ? "bg-gray-100 text-gray-400 border-gray-200" : "border-gray-300 focus:ring-1 focus:ring-amber-300"}`} 
-                 placeholder="Amount to subtract..."
-               />
+               <input type="number" disabled={!badgeActive} value={badgeAmount} onChange={(e) => setBadgeAmount(e.target.value)} className={`w-full border p-2.5 outline-none transition text-sm ${!badgeActive ? "bg-gray-100 text-gray-400 border-gray-200" : "border-gray-300 focus:ring-1 focus:ring-amber-300"}`} placeholder="Amount to subtract..." />
              </InputGroup>
           </div>
 
@@ -355,6 +359,7 @@ export default function ProductEdit() {
             </InputGroup>
           </div>
 
+          {/* ... Categories, Gender, Sizes (Kept from original) ... */}
           <div className="grid grid-cols-2 gap-4">
             <InputGroup label="Category">
               <select value={category || ""} onChange={(e) => setCategory(e.target.value)} className="w-full border border-gray-300 p-2.5 outline-none bg-white cursor-pointer">
@@ -398,6 +403,46 @@ export default function ProductEdit() {
             </div>
           </InputGroup>
 
+          {/* NEW: VIDEO MANAGEMENT SECTION */}
+          <InputGroup label="Video Management">
+            <div className="flex flex-col md:flex-row gap-6 items-center">
+               {/* Existing Video Preview */}
+               <div className="w-full md:w-1/2 aspect-video bg-gray-100 border border-gray-200 relative overflow-hidden group">
+                 { (editingProduct.video && !deleteVideo) ? (
+                   <>
+                    <video src={editingProduct.video.url} className="w-full h-full object-cover" />
+                    <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition">
+                       <button type="button" onClick={() => setDeleteVideo(true)} className="p-2 bg-white text-red-600 rounded-full hover:bg-red-50 transition">
+                         <Trash2 size={20} />
+                       </button>
+                    </div>
+                   </>
+                 ) : (
+                   <div className="w-full h-full flex flex-col items-center justify-center text-gray-400 gap-2 border-2 border-dashed border-gray-200">
+                     <Video size={32} />
+                     <span className="text-[9px] font-bold uppercase">No Video Linked</span>
+                   </div>
+                 )}
+                 {deleteVideo && <div className="absolute inset-0 bg-red-50/80 flex items-center justify-center text-red-600 font-bold text-[10px] uppercase tracking-widest">Marked for Deletion</div>}
+               </div>
+
+               {/* Video Upload Control */}
+               <div className="w-full md:w-1/2 space-y-3">
+                  <p className="text-[9px] text-gray-400 uppercase font-bold leading-tight">
+                    {newVideoFile ? `Selected: ${newVideoFile.name}` : "Upload new video to replace or add to this product."}
+                  </p>
+                  <label className="flex items-center justify-center gap-2 w-full py-3 border border-black text-[10px] font-bold uppercase tracking-widest hover:bg-black hover:text-white transition cursor-pointer">
+                    <Film size={14} />
+                    {editingProduct.video ? "Replace Video" : "Upload Video"}
+                    <input type="file" accept="video/*" className="hidden" onChange={handleVideoChange} />
+                  </label>
+                  {newVideoFile && (
+                    <button type="button" onClick={() => setNewVideoFile(null)} className="text-[9px] text-red-500 uppercase font-bold underline">Remove Selection</button>
+                  )}
+               </div>
+            </div>
+          </InputGroup>
+
           <InputGroup label="Image Management (Replace or Add)">
             <div className="grid grid-cols-4 gap-3">
               {editingProduct.images?.map((img, idx) => (
@@ -431,19 +476,10 @@ export default function ProductEdit() {
                 <button type="button" onClick={() => applyFormat('italic')} className="p-2 hover:bg-amber-100 transition"><Italic size={16}/></button>
                 <button type="button" onClick={() => applyFormat('insertUnorderedList')} className="p-2 hover:bg-amber-100 transition"><List size={16}/></button>
               </div>
-              <div 
-                ref={descriptionRef} 
-                contentEditable 
-                onInput={handleDescriptionChange} 
-                className="min-h-[400px] max-h-[60vh] border border-gray-300 p-3 outline-none focus:ring-1 focus:ring-amber-300 bg-white overflow-y-auto text-sm leading-relaxed" 
-              />
+              <div ref={descriptionRef} contentEditable onInput={handleDescriptionChange} className="min-h-[400px] max-h-[60vh] border border-gray-300 p-3 outline-none focus:ring-1 focus:ring-amber-300 bg-white overflow-y-auto text-sm leading-relaxed" />
             </div>
 
-            <button 
-              disabled={isSaving} 
-              type="submit"
-              className="w-full mt-5 py-4 bg-black text-white text-[10px] font-bold uppercase tracking-[0.2em] hover:bg-gray-800 transition shadow-xl flex items-center justify-center disabled:bg-gray-400"
-            >
+            <button disabled={isSaving} type="submit" className="w-full mt-5 py-4 bg-black text-white text-[10px] font-bold uppercase tracking-[0.2em] hover:bg-gray-800 transition shadow-xl flex items-center justify-center disabled:bg-gray-400">
               {isSaving ? <Loader2 className="animate-spin mr-2" size={16} /> : <Save className="mr-2" size={16} />}
               Update Product Information
             </button>
