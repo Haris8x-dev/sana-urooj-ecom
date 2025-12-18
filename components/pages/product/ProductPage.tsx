@@ -1,4 +1,3 @@
-// components/pages/product/ProductPage.tsx
 "use client";
 
 import React, { useState, useRef, useEffect, useCallback } from 'react';
@@ -28,12 +27,18 @@ interface ProductDetails {
   _id: string;
   title: string;
   description: string;
-  price: number;
+  price: number;      // Original Price
+  totalPrice: number; // Final Price (from DB)
   images: ImageObject[];
   video: ImageObject | null;
   sizes: Size[];
   cartLimit: number;
-  badges: any;
+  badges: {
+    saveRs?: {
+      active: boolean;
+      amount: number;
+    }
+  };
   isSoldOut?: boolean;
 }
 
@@ -156,8 +161,12 @@ export default function ProductPage({ productId }: ProductPageProps) {
     </div>
   );
   
-  const { title, price, sizes, description, isSoldOut, cartLimit } = product;
+  const { title, price, totalPrice, sizes, description, isSoldOut, cartLimit, badges } = product;
   
+  // Sale Logic
+  const isSaversActive = badges?.saveRs?.active && (badges?.saveRs?.amount || 0) > 0;
+  const saversAmount = badges?.saveRs?.amount;
+
   return (
     <div className="max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-24 py-10">
       <div className="grid grid-cols-1 md:grid-cols-12 gap-y-10 md:gap-x-10 items-start">
@@ -215,8 +224,15 @@ export default function ProductPage({ productId }: ProductPageProps) {
                 />
               )}
               
+              {/* SAVERS BADGE ON MAIN IMAGE */}
+              {index === 0 && isSaversActive && (
+                 <div className="absolute top-4 left-4 z-20 bg-red-600 text-white text-[11px] font-bold px-2 py-1 tracking-tighter uppercase shadow-sm">
+                    SAVERS {saversAmount}
+                 </div>
+              )}
+
               {index === 0 && isSoldOut && (
-                <span className="absolute top-4 left-4 bg-white/90 px-3 py-1 text-xs font-bold uppercase tracking-widest text-gray-500">
+                <span className={`absolute bottom-4 left-4 bg-white/90 px-3 py-1 text-xs font-bold uppercase tracking-widest text-gray-500`}>
                   Sold Out
                 </span>
               )}
@@ -231,9 +247,22 @@ export default function ProductPage({ productId }: ProductPageProps) {
               <h1 className="text-2xl font-mono tracking-wider uppercase text-gray-900">
                 {title}
               </h1>
-              <p className="mt-2 text-lg text-gray-600 font-light">
-                {formatPrice(price)}
-              </p>
+              <div className="mt-2 flex items-center gap-3">
+                {isSaversActive ? (
+                  <>
+                    <p className="text-lg text-red-600 font-bold">
+                      {formatPrice(totalPrice)}
+                    </p>
+                    <p className="text-sm text-gray-400 line-through mt-1">
+                      {formatPrice(price)}
+                    </p>
+                  </>
+                ) : (
+                  <p className="text-lg text-gray-600 font-light">
+                    {formatPrice(totalPrice || price)}
+                  </p>
+                )}
+              </div>
             </div>
 
             {/* Size Selector */}
@@ -264,7 +293,7 @@ export default function ProductPage({ productId }: ProductPageProps) {
               
               {selectedSize && (
                 <div className="mt-3 text-xs text-green-700 flex items-center gap-1">
-                  <Check size={12} /> Selected: <span className="font-semibold">{selectedSize}</span>
+                  <span className="flex items-center gap-1"><Check size={12} /> Selected: <span className="font-semibold">{selectedSize}</span></span>
                 </div>
               )}
             </div>
@@ -291,7 +320,7 @@ export default function ProductPage({ productId }: ProductPageProps) {
               )}
             </div>
             
-            {/* Description Area - Cleaned up */}
+            {/* Description Area */}
             <div className="pt-6 border-t border-gray-100">
               <div 
                 className="text-sm text-gray-600 leading-7 font-light prose prose-sm max-w-none"
