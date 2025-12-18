@@ -9,7 +9,7 @@ export async function GET() {
     await connectToDatabase();
 
     const products = await Product.aggregate([
-        // 1. Priority Sorting
+        // 1. Priority Sorting (Custom logic to keep null priorities at the end)
         {
             $addFields: {
                 sortPriority: { $ifNull: ["$priority", MAX_PRIORITY_VALUE] }
@@ -21,7 +21,7 @@ export async function GET() {
                 createdAt: -1     
             }
         },
-        // 2. Lookup Users for Reviews
+        // 2. Lookup Users for Reviews population
         {
             $lookup: {
                 from: 'users',
@@ -30,7 +30,7 @@ export async function GET() {
                 as: 'populatedUsers'
             }
         },
-        // 3. Stock Calculation
+        // 3. Stock Calculation & Sold Out Status
         {
             $addFields: {
                 totalStock: { $sum: "$sizes.quantity" }
@@ -41,27 +41,16 @@ export async function GET() {
                 isSoldOut: { $eq: ["$totalStock", 0] }
             }
         },
-        // 4. OVERWRITE PRICE WITH DISCOUNTED VALUE
-        // If badge is active, price = (price - amount). If not, price stays as price.
-        {
-            $addFields: {
-                price: {
-                    $cond: {
-                        if: { $eq: ["$badges.saveRs.active", true] },
-                        then: { $subtract: ["$price", "$badges.saveRs.amount"] },
-                        else: "$price"
-                    }
-                }
-            }
-        },
-        // 5. Final Projection
+        // 4. Final Projection
+        // We now fetch 'price' and 'totalPrice' directly from the DB
         {
             $project: {
                 title: 1, 
                 description: 1, 
                 images: 1, 
                 video: 1, 
-                price: 1, // This is now the final discounted price
+                price: 1,      // Original Price (Strikethrough on UI)
+                totalPrice: 1, // Final Discounted Price (stored via Schema middleware)
                 category: 1,
                 badges: 1, 
                 sizes: 1, 

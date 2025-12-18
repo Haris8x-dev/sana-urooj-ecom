@@ -24,11 +24,11 @@ async function deleteImagekitFileIfPossible(media: any) {
   }
 }
 
-/* ---------- GET: Fetch Product (Calculates Price Minus saveRs) ---------- */
-export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
+
+/* ---------- GET: Fetch Product (Includes totalPrice from DB) ---------- */
+export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const resolvedParams: { id: string } = (await (params as any)) ?? params;
-    const { id } = resolvedParams;
+    const { id } = await params;
 
     if (!id || !Types.ObjectId.isValid(id)) {
       return NextResponse.json({ error: "Invalid product id format" }, { status: 400 });
@@ -36,71 +36,64 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
 
     await connectToDatabase();
 
+    // We use aggregate to populate reviews with user data
     const productArr = await Product.aggregate([
-        { $match: { _id: new Types.ObjectId(id) } },
-        {
-            $lookup: {
-                from: 'users',
-                localField: 'reviews.userId',
-                foreignField: '_id',
-                as: 'populatedUsers'
-            }
-        },
-        // MINUS LOGIC: Overwrite 'price' field by subtracting badge amount if active
-        {
-            $addFields: {
-                price: {
-                    $cond: {
-                        if: { $eq: ["$badges.saveRs.active", true] },
-                        then: { $subtract: ["$price", "$badges.saveRs.amount"] },
-                        else: "$price"
-                    }
-                }
-            }
-        },
-        {
-            $project: {
-                title: 1, 
-                description: 1, 
-                images: 1, 
-                video: 1, 
-                price: 1, // This is now the final calculated price
-                category: 1, 
-                gender: 1, 
-                badges: 1, 
-                sizes: 1, 
-                priority: 1, 
-                createdAt: 1, 
-                updatedAt: 1, 
-                cartLimit: 1, 
-                reviews: {
-                    $map: {
-                        input: "$reviews",
-                        as: "review",
-                        in: {
-                            _id: "$$review._id",
-                            userId: "$$review.userId",
-                            rating: "$$review.rating",
-                            comment: "$$review.comment",
-                            createdAt: "$$review.createdAt",
-                            updatedAt: "$$review.updatedAt",
-                            user: {
-                                $arrayElemAt: [
-                                    "$populatedUsers",
-                                    { $indexOfArray: ["$populatedUsers._id", "$$review.userId"] }
-                                ]
-                            }
-                        }
-                    }
-                }
-            }
+      { $match: { _id: new Types.ObjectId(id) } },
+      {
+        $lookup: {
+          from: 'users',
+          localField: 'reviews.userId',
+          foreignField: '_id',
+          as: 'populatedUsers'
         }
+      },
+      {
+        $project: {
+          title: 1,
+          description: 1,
+          images: 1,
+          video: 1,
+          price: 1,      // Original price (Crossed out price on UI)
+          totalPrice: 1, // Pre-calculated final price (from Schema)
+          category: 1,
+          gender: 1,
+          badges: 1,
+          sizes: 1,
+          priority: 1,
+          cartLimit: 1,
+          createdAt: 1,
+          updatedAt: 1,
+          reviews: {
+            $map: {
+              input: "$reviews",
+              as: "review",
+              in: {
+                _id: "$$review._id",
+                userId: "$$review.userId",
+                rating: "$$review.rating",
+                comment: "$$review.comment",
+                createdAt: "$$review.createdAt",
+                updatedAt: "$$review.updatedAt",
+                user: {
+                  $arrayElemAt: [
+                    "$populatedUsers",
+                    { $indexOfArray: ["$populatedUsers._id", "$$review.userId"] }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
     ]);
-    
+
     const product = productArr[0];
-    if (!product) return NextResponse.json({ error: "Product not found" }, { status: 404 });
+    if (!product) {
+      return NextResponse.json({ error: "Product not found" }, { status: 404 });
+    }
 
     return NextResponse.json({ product }, { status: 200 });
+    
   } catch (err) {
     log("GET error:", err);
     return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });

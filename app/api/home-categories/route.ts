@@ -8,7 +8,7 @@ const MAX_PRIORITY_VALUE = 999999;
 
 /**
  * GET handler to fetch all categories, sorted by priority, 
- * with their associated products (and calculated discounted prices).
+ * with their associated products (including original price and pre-calculated totalPrice).
  */
 export async function GET() {
     try {
@@ -41,7 +41,7 @@ export async function GET() {
                     as: 'products'
                 }
             },
-            // Stage 5: Process the 'products' array to apply Price Minus Logic and Sort Fields
+            // Stage 5: Prepare products for sorting and final projection
             {
                 $addFields: {
                     products: {
@@ -53,15 +53,8 @@ export async function GET() {
                                 title: "$$product.title",
                                 images: "$$product.images",
                                 video: "$$product.video",
-                                // --- MINUS CALCULATION LOGIC ---
-                                // Overwrites the price with (price - amount) if saveRs badge is active
-                                price: {
-                                    $cond: {
-                                        if: { $eq: ["$$product.badges.saveRs.active", true] },
-                                        then: { $subtract: ["$$product.price", "$$product.badges.saveRs.amount"] },
-                                        else: "$$product.price"
-                                    }
-                                },
+                                price: "$$product.price",       // Original Price
+                                totalPrice: "$$product.totalPrice", // Pre-calculated Discounted Price
                                 badges: "$$product.badges",
                                 sizes: "$$product.sizes",
                                 priority: "$$product.priority",
@@ -73,7 +66,7 @@ export async function GET() {
                     }
                 }
             },
-            // Stage 6: Sort the array of products within the document
+            // Stage 6: Sort the array of products within each category
             {
                 $addFields: {
                     products: {
@@ -84,7 +77,7 @@ export async function GET() {
                     }
                 }
             },
-            // Stage 7: Final Projection
+            // Stage 7: Final Projection - Clean up sorting fields
             {
                 $project: {
                     _id: 1,
@@ -104,7 +97,8 @@ export async function GET() {
                                 title: "$$p.title",
                                 images: "$$p.images",
                                 video: "$$p.video", 
-                                price: "$$p.price", // This is the calculated price
+                                price: "$$p.price",      // MSRP
+                                totalPrice: "$$p.totalPrice", // Final Price
                                 badges: "$$p.badges",
                                 sizes: "$$p.sizes",
                                 priority: "$$p.priority"

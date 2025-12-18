@@ -17,7 +17,8 @@ async function deleteImagekitFileIfPossible(img: any) {
   }
 }
 
-/* ---------- GET single category + Calculated Products ---------- */
+
+/* ---------- GET single category + Pre-calculated Products ---------- */
 export async function GET(
   req: NextRequest, 
   { params }: { params: Promise<{ id: string }> }
@@ -31,26 +32,15 @@ export async function GET(
 
     await connectToDatabase();
 
+    // 1. Fetch the category details
     const category = await Category.findById(id);
     if (!category) {
       return NextResponse.json({ error: "Category not found" }, { status: 404 });
     }
 
-    // Use aggregate to minus the badge amount from price on the fly
+    // 2. Fetch products using the stored 'totalPrice' field
     const products = await Product.aggregate([
         { $match: { category: new Types.ObjectId(id) } },
-        {
-            $addFields: {
-                // If badge is active, price = price - amount
-                price: {
-                    $cond: {
-                        if: { $eq: ["$badges.saveRs.active", true] },
-                        then: { $subtract: ["$price", "$badges.saveRs.amount"] },
-                        else: "$price"
-                    }
-                }
-            }
-        },
         {
             $sort: { 
                 priority: 1, 
@@ -59,8 +49,16 @@ export async function GET(
         },
         {
             $project: {
-                title: 1, name: 1, description: 1, price: 1, 
-                images: 1, reviews: 1, badges: 1, sizes: 1, priority: 1
+                title: 1, 
+                name: 1, 
+                description: 1, 
+                price: 1,      // Original Price (Base)
+                totalPrice: 1, // Final Price (Pre-calculated by Middleware)
+                images: 1, 
+                reviews: 1, 
+                badges: 1, 
+                sizes: 1, 
+                priority: 1
             }
         }
     ]);
