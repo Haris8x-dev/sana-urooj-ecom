@@ -14,10 +14,10 @@ interface Product {
   _id: string;
   title: string;
   price: number;      // Original Price
-  totalPrice: number; // Final Price
+  totalPrice: number; // Final Price from DB
   images: ImageObject[];
   isSoldOut: boolean;
-  priority: number;   // Added priority field for filtering
+  gender: string; 
   badges?: {
     saveRs: {
       active: boolean;
@@ -26,7 +26,7 @@ interface Product {
   };
 }
 
-export default function PriorityShop() {
+export default function WomenShop() {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   
@@ -40,11 +40,11 @@ export default function PriorityShop() {
         const data = await res.json();
         
         if (data.products) {
-          // FILTER: Only show products where priority is 1
-          const priorityProducts = data.products.filter(
-            (product: Product) => product.priority === 1
+          // FILTER: Only show products where gender is "female"
+          const femaleProducts = data.products.filter(
+            (product: Product) => product.gender?.toLowerCase() === "female"
           );
-          setProducts(priorityProducts);
+          setProducts(femaleProducts);
         }
       } catch (error) {
         console.error("Failed to fetch products:", error);
@@ -65,7 +65,7 @@ export default function PriorityShop() {
       {/* 1. Page Title */}
       <div className="py-2 md:py-8 text-center"> 
         <h1 className="text-md tracking-widest text-gray-900 navItems uppercase font-mono py-4">
-          Featured Collection
+          Women's Collection
         </h1>
       </div>
 
@@ -115,11 +115,12 @@ export default function PriorityShop() {
       <div className="w-full py-8 px-6">
         {loading ? (
           <div className="flex justify-center items-center h-64">
-            <p className="text-gray-400 tracking-widest text-sm uppercase">Loading Featured Items...</p>
+            <p className="text-gray-400 tracking-widest text-sm">LOADING WOMEN'S COLLECTION...</p>
           </div>
         ) : products.length === 0 ? (
           <div className="flex justify-center items-center h-64 text-center flex-col gap-2">
-            <p className="text-gray-400 tracking-widest text-sm uppercase">No Featured Items Found</p>
+            <p className="text-gray-400 tracking-widest text-sm uppercase">No items found</p>
+            <p className="text-[10px] text-gray-400 tracking-tighter">Please check back later for new arrivals.</p>
           </div>
         ) : (
           <div
@@ -130,6 +131,7 @@ export default function PriorityShop() {
             `}
           >
             {products.map((product) => {
+              // Discount check
               const isSaversActive = product.badges?.saveRs?.active && (product.badges?.saveRs?.amount || 0) > 0;
               const saversAmount = product.badges?.saveRs?.amount;
 
@@ -143,7 +145,7 @@ export default function PriorityShop() {
                   <div className="relative w-full overflow-hidden bg-gray-100 aspect-3/4">
                       {/* SAVERS BADGE */}
                       {isSaversActive && (
-                        <div className="absolute top-3 left-3 z-20 bg-red-600 text-white text-[9px] md:text-[11px] font-bold px-2 py-1 tracking-tighter uppercase shadow-sm">
+                        <div className="absolute top-3 left-3 z-20 bg-red-600 text-white text-[9px] md:text-[11px] font-bold px-2 py-1 tracking-tighter uppercase">
                           SAVERS {saversAmount}
                         </div>
                       )}

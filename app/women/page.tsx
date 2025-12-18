@@ -1,5 +1,5 @@
 import React from 'react'
-import Female from "@/components/pages/female/FemalePage"
+import Female from "@/components/pages/women/FemalePage"
 
 const FemalePage = () => {
   return (

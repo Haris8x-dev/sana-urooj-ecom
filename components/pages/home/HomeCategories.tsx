@@ -1,5 +1,3 @@
-// components/HomeCategories.tsx
-
 "use client";
 
 import React, { useEffect, useState, useRef } from "react";
@@ -17,7 +15,14 @@ interface Product {
   _id: string;
   title: string;
   images: ImageObject[];
-  price: number;
+  price: number;      // Original Price
+  totalPrice: number; // Calculated Price
+  badges?: {
+    saveRs: {
+      active: boolean;
+      amount: number;
+    };
+  };
 }
 
 interface Category {
@@ -35,9 +40,10 @@ interface ApiResponse {
 const ProductCard: React.FC<{ product: Product }> = ({ product }) => {
   const productUrl = `/product/${product._id}`;
   const imageUrl = product.images?.[0]?.url || "/images/placeholder.png";
-  const formattedPrice = product.price
-    ? `Rs. ${product.price.toLocaleString("en-US")}`
-    : "Price on request";
+  
+  // Logic for the SaveRs badge
+  const isSaversActive = product.badges?.saveRs?.active && (product.badges?.saveRs?.amount || 0) > 0;
+  const saversAmount = product.badges?.saveRs?.amount;
 
   return (
     <Link href={productUrl} className="group block text-center">
@@ -52,6 +58,13 @@ const ProductCard: React.FC<{ product: Product }> = ({ product }) => {
             md:h-[580px]   // desktop height
         "
       >
+        {/* --- RED SAVERS TAG --- */}
+        {isSaversActive && (
+          <div className="absolute top-4 left-4 z-10 bg-red-600 text-white text-[10px] md:text-xs font-bold px-2 py-1 tracking-tighter uppercase">
+            SAVERS {saversAmount}
+          </div>
+        )}
+
         <Image
           src={imageUrl}
           alt={product.title}
@@ -64,7 +77,25 @@ const ProductCard: React.FC<{ product: Product }> = ({ product }) => {
         {product.title}
       </h4>
 
-      <p className="text-sm text-gray-600 mt-1">{formattedPrice}</p>
+      {/* --- PRICE DISPLAY --- */}
+      <div className="flex items-center justify-center gap-2 mt-1">
+        {isSaversActive ? (
+          <>
+            <span className="text-sm text-gray-400 line-through">
+              Rs. {product.price.toLocaleString("en-US")}
+            </span>
+            <span className="text-sm text-red-600 font-semibold">
+              Rs. {product.totalPrice.toLocaleString("en-US")}
+            </span>
+          </>
+        ) : (
+          <p className="text-sm text-gray-600">
+            {product.totalPrice > 0 
+              ? `Rs. ${product.totalPrice.toLocaleString("en-US")}` 
+              : "Price on request"}
+          </p>
+        )}
+      </div>
     </Link>
   );
 };
@@ -120,14 +151,9 @@ const DesktopScroller: React.FC<{ products: Product[] }> = ({ products }) => {
         </button>
       )}
 
-      {/* ⭐ DESKTOP SCROLL AREA — overflow-x hidden */}
       <div
         ref={scrollRef}
-        className="
-                    flex space-x-12
-                    overflow-x-hidden   /* ⭐ Hiding horizontal overflow */
-                    pb-6
-                "
+        className="flex space-x-12 overflow-x-hidden pb-6"
       >
         {products.map((product) => (
           <div key={product._id} className="min-w-[420px] shrink-0">
@@ -180,26 +206,14 @@ const HomeCategories: React.FC = () => {
     <section className="w-full bg-[#fcfbf4]">
       {categories.map((category, index) => (
         <div key={category._id}>
-          {/* TITLE */}
           <div className="max-w-7xl mx-auto pt-10 pb-12 text-center">
             <h2 className="text-3xl md:text-4xl font-serif uppercase tracking-widest text-gray-900">
               {category.title}
             </h2>
           </div>
 
-          {/* PRODUCT LISTS */}
           <div className="w-8xl mx-auto px-3 sm:px-4 md:px-12">
-            {/* ⭐ MOBILE — swipe manually */}
-            <div
-              className="
-                                flex md:hidden 
-                                space-x-8 
-                                overflow-x-auto 
-                                scrollbar-none 
-                                pb-6 
-                                whitespace-nowrap
-                            "
-            >
+            <div className="flex md:hidden space-x-8 overflow-x-auto scrollbar-none pb-6 whitespace-nowrap">
               {category.products.map((product) => (
                 <div key={product._id} className="inline-block min-w-[220px]">
                   <ProductCard product={product} />
@@ -207,50 +221,19 @@ const HomeCategories: React.FC = () => {
               ))}
             </div>
 
-            {/* ⭐ DESKTOP — with arrows + overflow hidden */}
             <DesktopScroller products={category.products} />
 
-            {/* BUTTON */}
             <div className="flex mx-auto justify-center mt-6 mb-6">
               <Link
                 href={`/category/${category._id}`}
-                // 1. Add 'group' to make the pseudo-element hover effect work
-                className="
-            relative inline-block 
-            px-10 py-3 
-            text-xs font-semibold uppercase tracking-widest 
-            text-white 
-            bg-gray-900 
-            overflow-hidden 
-            transition-colors duration-500 ease-in-out
-            group
-            
-            // 2. Hover state for text color and background color
-            hover:text-gray-900 
-            hover:bg-transparent 
-            border border-gray-900 
-        "
+                className="relative inline-block px-10 py-3 text-xs font-semibold uppercase tracking-widest text-white bg-gray-900 overflow-hidden transition-colors duration-500 ease-in-out group hover:text-gray-900 hover:bg-transparent border border-gray-900"
               >
-                {/* 3. Pseudo-element for the Sliding Background */}
-                <span
-                  className="
-                absolute inset-0 block 
-                bg-white 
-                transform -translate-x-full 
-                group-hover:translate-x-0 
-                transition-transform duration-500 ease-in-out
-                z-0
-            "
-                  aria-hidden="true"
-                ></span>
-
-                {/* 4. Text Content (Must be above the sliding background) */}
+                <span className="absolute inset-0 block bg-white transform -translate-x-full group-hover:translate-x-0 transition-transform duration-500 ease-in-out z-0" aria-hidden="true"></span>
                 <span className="relative z-10">View All Products</span>
               </Link>
             </div>
           </div>
 
-          {/* DIVIDER */}
           {index < categories.length - 1 && (
             <hr className="max-w-full mx-auto border-t border-gray-300" />
           )}

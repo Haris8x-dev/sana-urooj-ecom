@@ -1,14 +1,12 @@
 import React from 'react'
-import TrendingPage from '@/components/pages/Trending/TrendingProducts'
+import Trending from "@/components/pages/trending/TrendingProducts"
 
-const Trending= () => {
+const TrendingPage = () => {
   return (
-    <div
-     className='h-screen w-full flex justify-center items-center text-black'
-    >
-        <h1>Currently in progress</h1>
+    <div>
+        <Trending/>
     </div>
   )
 }
 
-export default Trending;
+export default TrendingPage;

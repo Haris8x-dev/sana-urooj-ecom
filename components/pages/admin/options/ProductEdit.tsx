@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef, useCallback, useMemo } from "react"
 import Image from "next/image";
 import { 
   Plus, X, Bold, Italic, List, ListOrdered, 
-  Loader2, ArrowLeft, Save, Trash2, Upload, AlertTriangle, Search
+  Loader2, ArrowLeft, Save, Trash2, Upload, AlertTriangle, Search, Percent
 } from "lucide-react";
 
 // --- Type Definitions ---
@@ -35,6 +35,13 @@ interface Product {
   cartLimit: number;
   images: { url: string; fileId: string }[];
   sizes: Size[];
+  // Added badges interface
+  badges?: {
+    saveRs: {
+      active: boolean;
+      amount: number;
+    }
+  }
 }
 
 const InputGroup: React.FC<{ label: string; children: React.ReactNode; required?: boolean }> = ({ label, children, required = false }) => (
@@ -69,6 +76,10 @@ export default function ProductEdit() {
   const [cartLimit, setCartLimit] = useState<string>("1");
   const [sizes, setSizes] = useState<Size[]>([]);
   
+  // NEW: SaveRs Badge States
+  const [badgeActive, setBadgeActive] = useState<boolean>(false);
+  const [badgeAmount, setBadgeAmount] = useState<string>("0");
+  
   const [deleteIndexes, setDeleteIndexes] = useState<number[]>([]);
   const [replaceIndexes, setReplaceIndexes] = useState<number[]>([]);
   const [newFiles, setNewFiles] = useState<File[]>([]);
@@ -79,7 +90,6 @@ export default function ProductEdit() {
     fetchInitialData();
   }, []);
 
-  // --- Search Logic ---
   const filteredProducts = useMemo(() => {
     return products.filter((prod) =>
       prod.title.toLowerCase().includes(searchQuery.toLowerCase())
@@ -114,6 +124,11 @@ export default function ProductEdit() {
     setPriority(product.priority?.toString() || "");
     setCartLimit(product.cartLimit?.toString() || "1");
     setSizes(product.sizes || []);
+    
+    // NEW: Load existing badge data
+    setBadgeActive(product.badges?.saveRs?.active || false);
+    setBadgeAmount(product.badges?.saveRs?.amount?.toString() || "0");
+
     setDeleteIndexes([]);
     setReplaceIndexes([]);
     setNewFiles([]);
@@ -186,6 +201,10 @@ export default function ProductEdit() {
       formData.append("description", description);
       formData.append("price", price);
       
+      // NEW: Append Badge data
+      formData.append("badgeActive", String(badgeActive));
+      formData.append("badgeAmount", badgeAmount);
+
       if (category === "" || !category) {
         formData.append("removeCategory", "true");
       } else {
@@ -227,7 +246,6 @@ export default function ProductEdit() {
     </div>
   );
 
-  // --- VIEW 1: PRODUCT SELECTION GRID ---
   if (!editingProduct) {
     return (
       <div className="p-6 relative">
@@ -287,7 +305,6 @@ export default function ProductEdit() {
     );
   }
 
-  // --- VIEW 2: FULL EDIT FORM ---
   return (
     <div className="w-full px-6 py-6 bg-gray-50 min-h-screen">
       <button onClick={() => setEditingProduct(null)} className="flex items-center text-xs font-bold uppercase tracking-widest text-gray-400 hover:text-black mb-6 transition">
@@ -301,8 +318,36 @@ export default function ProductEdit() {
             <input value={title} onChange={(e) => setTitle(e.target.value)} className="w-full border border-gray-300 p-2.5 outline-none focus:ring-1 focus:ring-amber-300 transition" required />
           </InputGroup>
 
+          {/* --- SAVERS RS DISCOUNT SECTION --- */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+             <InputGroup label="Savers Rs Badge">
+               <div className="flex items-center h-10 gap-3">
+                 <input 
+                   type="checkbox" 
+                   id="saversActive"
+                   checked={badgeActive} 
+                   onChange={(e) => setBadgeActive(e.target.checked)} 
+                   className="w-5 h-5 accent-black cursor-pointer"
+                 />
+                 <label htmlFor="saversActive" className="text-[10px] font-bold uppercase cursor-pointer">
+                   {badgeActive ? "Discount Active" : "No Discount Active"}
+                 </label>
+               </div>
+             </InputGroup>
+             <InputGroup label="Discount Amount (Rs)">
+               <input 
+                 type="number" 
+                 disabled={!badgeActive}
+                 value={badgeAmount} 
+                 onChange={(e) => setBadgeAmount(e.target.value)} 
+                 className={`w-full border p-2.5 outline-none transition text-sm ${!badgeActive ? "bg-gray-100 text-gray-400 border-gray-200" : "border-gray-300 focus:ring-1 focus:ring-amber-300"}`} 
+                 placeholder="Amount to subtract..."
+               />
+             </InputGroup>
+          </div>
+
           <div className="grid grid-cols-2 gap-4">
-            <InputGroup label="Price (Rs)" required>
+            <InputGroup label="Original Price (Rs)" required>
               <input type="number" value={price} onChange={(e) => setPrice(e.target.value)} className="w-full border border-gray-300 p-2.5 outline-none focus:ring-1 focus:ring-amber-300 transition" required />
             </InputGroup>
             <InputGroup label="Cart Limit" required>
