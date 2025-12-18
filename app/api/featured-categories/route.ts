@@ -1,19 +1,17 @@
 // app/api/featured-categories/route.ts
 import { NextResponse } from 'next/server';
 import { connectToDatabase } from '@/lib/db/db';
-import FeaturedCategories, { IPopulatedCategory, ICategoryImage } from '@/lib/models/featured/featuredCategoriesSchema';
+import FeaturedCategories from '@/lib/models/featured/featuredCategoriesSchema';
 import Category from '@/lib/models/categories/category';
+import Product from '@/lib/models/products/product'; // Required for aggregate calculation
 import { Types } from 'mongoose';
 
 function log(...args: any[]) {
     console.log("[/api/featured-categories]", ...args);
 }
 
-// Select all necessary fields including the complete images array with url and fileId
-const REQUIRED_CATEGORY_FIELDS = '_id title description images';
-
 // =======================================================
-// A. GET: Fetch the 3 Featured Categories (for Homepage Display)
+// A. GET: Fetch the 3 Featured Categories (Includes Calculated Prices)
 // =======================================================
 export async function GET() {
     try {
@@ -29,19 +27,44 @@ export async function GET() {
             );
         }
 
-        // 2. Fetch the full Category documents using the IDs and Mongoose populate
-        // NOTE: The 'select' field dictates the details returned.
-        const populatedDoc = await featuredDoc.populate({
-            path: 'categoryIds',
-            model: Category,
-            select: REQUIRED_CATEGORY_FIELDS, // Use the consistent field list
-        });
+        // 2. Fetch the Categories and their associated Products with the minus logic
+        // We use Promise.all to handle the async calculation for each category
+        const featuredCategories = await Promise.all(
+            featuredDoc.categoryIds.map(async (catId) => {
+                const category = await Category.findById(catId).select('_id title description images');
+                if (!category) return null;
 
-        // Ensure only valid categories are returned (in case a referenced category was deleted)
-        const categories = populatedDoc.categoryIds.filter(cat => cat !== null);
+                // For each featured category, we also want its products to have the discounted price
+                const products = await Product.aggregate([
+                    { $match: { category: new Types.ObjectId(catId as string) } },
+                    {
+                        $addFields: {
+                            // price = price - badgeAmount (if active)
+                            price: {
+                                $cond: {
+                                    if: { $eq: ["$badges.saveRs.active", true] },
+                                    then: { $subtract: ["$price", "$badges.saveRs.amount"] },
+                                    else: "$price"
+                                }
+                            }
+                        }
+                    },
+                    { $sort: { priority: 1, createdAt: -1 } }
+                ]);
+
+                // Return category combined with its correctly priced products
+                return {
+                    ...category.toObject(),
+                    products
+                };
+            })
+        );
+
+        // Filter out any nulls in case a category was deleted but still in featuredDoc
+        const validCategories = featuredCategories.filter(cat => cat !== null);
 
         return NextResponse.json(
-            { featuredCategories: categories },
+            { featuredCategories: validCategories },
             { status: 200 }
         );
 
@@ -55,7 +78,7 @@ export async function GET() {
 }
 
 // =======================================================
-// B. PATCH: Update/Set the 3 Featured Categories (for Admin Panel)
+// B. PATCH: Update/Set the 3 Featured Categories
 // =======================================================
 export async function PATCH(request: Request) {
     try {
@@ -71,60 +94,59 @@ export async function PATCH(request: Request) {
             );
         }
 
-        // 2. Validate IDs are valid Mongoose ObjectIds
-        // NOTE: We must convert strings to ObjectIds for Mongoose queries if we are using the array directly.
+        // 2. Validate IDs
         const objectCategoryIds = categoryIds.map((id: string) => {
-            if (!Types.ObjectId.isValid(id)) {
-                throw new Error("Invalid ObjectId found.");
-            }
+            if (!Types.ObjectId.isValid(id)) throw new Error("Invalid ObjectId found.");
             return new Types.ObjectId(id);
         });
 
-        // 3. Optional: Verify these categories actually exist (recommended)
+        // 3. Verify existence
         const existingCount = await Category.countDocuments({ _id: { $in: objectCategoryIds } });
         if (existingCount !== 3) {
             return NextResponse.json(
-                { error: "One or more categories do not exist in the database." },
+                { error: "One or more categories do not exist." },
                 { status: 404 }
             );
         }
 
-        // 4. Update or Create the single FeaturedCategories document
+        // 4. Update the document
         const updatedDoc = await FeaturedCategories.findOneAndUpdate(
-            {}, // Query: Find any document (since we only expect one)
-            { categoryIds: objectCategoryIds }, // Update: Set the new array of IDs (using ObjectIds)
-            {
-                new: true,
-                upsert: true,
-                runValidators: true
-            }
+            {}, 
+            { categoryIds: objectCategoryIds }, 
+            { new: true, upsert: true, runValidators: true }
         );
 
-        // 5. Respond with the populated document
-        const populatedDoc: any = updatedDoc; // Cast for population stability
-
-        const finalPopulated = await populatedDoc.populate({
-            path: 'categoryIds',
-            model: Category,
-            select: REQUIRED_CATEGORY_FIELDS, // Use the consistent field list
-        });
+        // 5. Populate and return (Re-using the GET logic ensures price consistency after update)
+        const finalCategories = await Promise.all(
+            updatedDoc.categoryIds.map(async (catId) => {
+                const category = await Category.findById(catId).select('_id title description images');
+                const products = await Product.aggregate([
+                    { $match: { category: new Types.ObjectId(catId as string) } },
+                    {
+                        $addFields: {
+                            price: {
+                                $cond: {
+                                    if: { $eq: ["$badges.saveRs.active", true] },
+                                    then: { $subtract: ["$price", "$badges.saveRs.amount"] },
+                                    else: "$price"
+                                }
+                            }
+                        }
+                    }
+                ]);
+                return { ...category?.toObject(), products };
+            })
+        );
 
         return NextResponse.json(
-            { message: "Featured categories updated successfully.", featuredCategories: finalPopulated.categoryIds },
+            { message: "Featured categories updated.", featuredCategories: finalCategories },
             { status: 200 }
         );
 
     } catch (err: any) {
         log("PATCH error:", err);
-        if (err.message === "Invalid ObjectId found.") {
-            return NextResponse.json({ error: "One or more provided IDs are invalid Mongoose ObjectIds." }, { status: 400 });
-        }
-        // Catch validation errors from the schema (e.g., if array length wasn't 3)
-        if (err.name === 'ValidationError') {
-            return NextResponse.json({ error: err.message }, { status: 400 });
-        }
         return NextResponse.json(
-            { error: "Failed to update featured categories." },
+            { error: err.message || "Failed to update featured categories." },
             { status: 500 }
         );
     }

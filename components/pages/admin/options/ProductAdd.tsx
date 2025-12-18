@@ -1,7 +1,7 @@
 "use client";
 
-import React, { useState, useRef, useEffect, useCallback, useMemo } from "react";
-import { Plus, X, Bold, Italic, List, ListOrdered, Loader2 } from "lucide-react";
+import React, { useState, useRef, useEffect, useCallback } from "react";
+import { Plus, X, Bold, Italic, List, ListOrdered, Tag } from "lucide-react";
 
 // --- Type Definitions ---
 interface AddOnInput {
@@ -36,6 +36,7 @@ const InputGroup: React.FC<InputGroupProps> = ({ label, children, required = fal
 );
 
 export default function ProductAdd() {
+  // Existing State
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [price, setPrice] = useState<number | string>("");
@@ -43,26 +44,26 @@ export default function ProductAdd() {
   const [cartLimit, setCartLimit] = useState<number | string>("");
   const [category, setCategory] = useState(""); 
   const [categories, setCategories] = useState<Category[]>([]);
-  const [loadingCategories, setLoadingCategories] = useState(true);
   const [gender, setGender] = useState<"Male" | "Female" | "">("");
   const [images, setImages] = useState<File[]>([]);
   const [videoFile, setVideoFile] = useState<File | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  
-  const descriptionRef = useRef<HTMLDivElement>(null);
   const [sizes, setSizes] = useState<SizeInput[]>([{ name: "", quantity: "", addOns: [] }]);
+
+  // --- NEW: Badge State ---
+  const [badgeActive, setBadgeActive] = useState(false);
+  const [badgeAmount, setBadgeAmount] = useState<number | string>(0);
+
+  const descriptionRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const fetchCategories = async () => {
       try {
-        setLoadingCategories(true);
         const response = await fetch('/api/categories/get'); 
         const data = await response.json();
         setCategories(data.categories || data || []);
       } catch (error) {
         console.error('Error fetching categories:', error);
-      } finally {
-        setLoadingCategories(false);
       }
     };
     fetchCategories();
@@ -112,10 +113,12 @@ export default function ProductAdd() {
       formData.append("price", price.toString());
       formData.append("priority", priority.toString());
       formData.append("cartLimit", cartLimit.toString());
-      
-      // Explicitly handle "None" as null/empty string
       formData.append("category", category === "" ? "" : category);
       formData.append("gender", gender);
+
+      // --- NEW: Append Badge Data ---
+      formData.append("badgeActive", badgeActive.toString());
+      formData.append("badgeAmount", badgeAmount.toString());
 
       const filteredSizes = sizes.filter(s => s.name && s.quantity !== "");
       formData.append("sizes", JSON.stringify(filteredSizes));
@@ -141,15 +144,9 @@ export default function ProductAdd() {
 
   return (
     <div className="w-full px-4 sm:px-6">
-
-      <div>
-          <h1
-          className="text-2xl font-bold pt-8 pb-8"
-          >Add A Product</h1>
-      </div>
+      <h1 className="text-2xl font-bold pt-8 pb-8">Add A Product</h1>
       
       <form onSubmit={handleSubmit} className="flex flex-col lg:flex-row gap-6 items-start">
-        {/* LEFT COLUMN - RESPONSIVE WIDTH */}
         <div className="w-full lg:w-1/2 space-y-5">
           <InputGroup label="Title" required>
             <input type="text" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g., Slim Fit Denim Jacket" className="w-full border border-gray-300 rounded-md p-2.5 focus:ring-2 focus:ring-amber-300 outline-none" required />
@@ -161,6 +158,35 @@ export default function ProductAdd() {
 
           <div className="border border-gray-300 rounded-lg p-4 space-y-4 bg-white shadow-sm">
             <h3 className="text-base font-semibold text-gray-800 border-b pb-2">Product Settings</h3>
+            
+            {/* --- NEW: Badge Configuration --- */}
+            <div className="p-3 bg-amber-50 rounded-lg border border-amber-200">
+               <label className="flex items-center gap-3 cursor-pointer group">
+                 <input 
+                   type="checkbox" 
+                   checked={badgeActive} 
+                   onChange={(e) => setBadgeActive(e.target.checked)}
+                   className="w-4 h-4 text-amber-600 rounded focus:ring-amber-500"
+                 />
+                 <div className="flex items-center gap-2">
+                    <Tag size={16} className="text-amber-600" />
+                    <span className="text-sm font-bold text-amber-900">Enable Discount Badge</span>
+                 </div>
+               </label>
+               {badgeActive && (
+                 <div className="mt-4 animate-in slide-in-from-top-1 duration-200">
+                    <label className="block text-[10px] font-bold text-amber-700 uppercase tracking-widest mb-1">Savings Amount (Rs)</label>
+                    <input 
+                      type="number" 
+                      value={badgeAmount} 
+                      onChange={(e) => setBadgeAmount(e.target.value)}
+                      placeholder="e.g., 500"
+                      className="w-full border border-amber-300 rounded-md p-2 text-sm outline-none focus:ring-2 focus:ring-amber-400 bg-white"
+                    />
+                 </div>
+               )}
+            </div>
+
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-2">Priority</label>
@@ -208,7 +234,18 @@ export default function ProductAdd() {
                       <input type="text" placeholder="Size (e.g. M)" value={size.name} onChange={(e) => handleSizeChange(sIdx, 'name', e.target.value)} className="p-2 text-sm border rounded bg-white" required />
                       <input type="number" placeholder="Qty" value={size.quantity} onChange={(e) => handleSizeChange(sIdx, 'quantity', e.target.value)} className="p-2 text-sm border rounded bg-white" required />
                     </div>
-                    {/* Addons Logic preserved... */}
+                    
+                    {/* Addons Logic */}
+                    <div className="mt-2 space-y-2">
+                      {size.addOns.map((addon, aIdx) => (
+                        <div key={aIdx} className="flex items-center gap-2">
+                          <input type="text" placeholder="Detail" value={addon.detail} onChange={(e) => handleAddOnChange(sIdx, aIdx, 'detail', e.target.value)} className="flex-1 p-1 text-xs border rounded" />
+                          <input type="number" placeholder="+ Price" value={addon.priceAdjustment} onChange={(e) => handleAddOnChange(sIdx, aIdx, 'priceAdjustment', e.target.value)} className="w-20 p-1 text-xs border rounded" />
+                          <button type="button" onClick={() => handleRemoveAddOn(sIdx, aIdx)} className="text-red-400"><X size={12}/></button>
+                        </div>
+                      ))}
+                      <button type="button" onClick={() => handleAddAddOn(sIdx)} className="text-[10px] text-indigo-600 font-bold uppercase">+ Add-on</button>
+                    </div>
                  </div>
                ))}
              </div>
@@ -224,7 +261,7 @@ export default function ProductAdd() {
           </button>
         </div>
 
-        {/* RIGHT COLUMN - STICKY ON DESKTOP, FLOW ON MOBILE */}
+        {/* RIGHT COLUMN - DESCRIPTION */}
         <div className="w-full lg:w-1/2 lg:sticky lg:top-4">
           <div className="border border-gray-300 rounded-lg p-4 bg-white shadow-sm">
             <label className="block text-sm font-semibold text-gray-700 mb-2">Description *</label>

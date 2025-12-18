@@ -8,7 +8,7 @@ const MAX_PRIORITY_VALUE = 999999;
 
 /**
  * GET handler to fetch all categories, sorted by priority, 
- * with their associated products also sorted by priority.
+ * with their associated products (and calculated discounted prices).
  */
 export async function GET() {
     try {
@@ -21,18 +21,18 @@ export async function GET() {
                     sortPriority: { $ifNull: ["$priority", MAX_PRIORITY_VALUE] }
                 }
             },
-            // Stage 2: Sort Categories by their priority (1 is highest)
+            // Stage 2: Sort Categories by their priority
             {
                 $sort: {
-                    sortPriority: 1,  
+                    sortPriority: 1,  
                     createdAt: 1
                 }
             },
-            // --- NEW STAGE: Clean up temporary category sort field immediately ---
+            // Stage 3: Clean up temporary category sort field
             {
                 $unset: ["sortPriority"] 
             },
-            // Stage 4 (formerly 3): Look up Products associated with this Category
+            // Stage 4: Look up Products associated with this Category
             {
                 $lookup: {
                     from: Product.collection.name, 
@@ -41,7 +41,7 @@ export async function GET() {
                     as: 'products'
                 }
             },
-            // Stage 5 (formerly 4): Process the 'products' array to apply custom sorting
+            // Stage 5: Process the 'products' array to apply Price Minus Logic and Sort Fields
             {
                 $addFields: {
                     products: {
@@ -49,37 +49,44 @@ export async function GET() {
                             input: "$products",
                             as: "product",
                             in: {
-                                // Reconstruct the product fields, adding a temporary sort field
                                 _id: "$$product._id",
                                 title: "$$product.title",
                                 images: "$$product.images",
-                                video: "$$product.video", // Include video
-                                price: "$$product.price",
+                                video: "$$product.video",
+                                // --- MINUS CALCULATION LOGIC ---
+                                // Overwrites the price with (price - amount) if saveRs badge is active
+                                price: {
+                                    $cond: {
+                                        if: { $eq: ["$$product.badges.saveRs.active", true] },
+                                        then: { $subtract: ["$$product.price", "$$product.badges.saveRs.amount"] },
+                                        else: "$$product.price"
+                                    }
+                                },
+                                badges: "$$product.badges",
                                 sizes: "$$product.sizes",
                                 priority: "$$product.priority",
-                                // Temporary field for sorting products (nulls last)
+                                createdAt: "$$product.createdAt",
+                                // Temporary field for sorting products within the array
                                 productSortPriority: { $ifNull: ["$$product.priority", MAX_PRIORITY_VALUE] }
                             }
                         }
                     }
                 }
             },
-            // Stage 6 (formerly 5): Sort the array of products within the document
+            // Stage 6: Sort the array of products within the document
             {
                 $addFields: {
                     products: {
                         $sortArray: {
                             input: "$products",
-                            // Sort products: priority ascending, createdAt descending
                             sortBy: { productSortPriority: 1, createdAt: -1 } 
                         }
                     }
                 }
             },
-            // Stage 7 (formerly 6): Final Projection - Clean up product's temporary sort field
+            // Stage 7: Final Projection
             {
                 $project: {
-                    // Category fields (simple inclusion)
                     _id: 1,
                     title: 1,
                     slug: 1,
@@ -88,24 +95,22 @@ export async function GET() {
                     priority: 1,
                     createdAt: 1,
                     updatedAt: 1,
-                    
-                    // Clean up product fields within the array (using $map)
                     products: {
                         $map: {
                             input: "$products",
-                            as: "product",
+                            as: "p",
                             in: {
-                                _id: "$$product._id",
-                                title: "$$product.title",
-                                images: "$$product.images",
-                                video: "$$product.video", 
-                                price: "$$product.price",
-                                sizes: "$$product.sizes",
-                                priority: "$$product.priority",
-                                // The productSortPriority field is implicitly excluded here
+                                _id: "$$p._id",
+                                title: "$$p.title",
+                                images: "$$p.images",
+                                video: "$$p.video", 
+                                price: "$$p.price", // This is the calculated price
+                                badges: "$$p.badges",
+                                sizes: "$$p.sizes",
+                                priority: "$$p.priority"
                             }
                         }
-                    },
+                    }
                 }
             }
         ]);
