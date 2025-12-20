@@ -3,13 +3,21 @@
 import React, { useState, useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { LayoutGrid, Grid3X3, Grid2X2, ChevronDown, Square, ShoppingBag, Check } from "lucide-react"; 
+import { LayoutGrid, Grid3X3, Grid2X2, ChevronDown, Square, ShoppingBag } from "lucide-react"; 
 import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
+
+// Import the QuickViewBox component
+import QuickViewBox from "@/components/layouts/QuickViewBox";
 
 interface ImageObject {
   url: string;
   fileId: string;
+}
+
+interface Size {
+  name: string;
+  quantity: number | string;
 }
 
 interface Product {
@@ -20,6 +28,8 @@ interface Product {
   images: ImageObject[];
   isSoldOut: boolean;
   gender: string; 
+  cartLimit: number;  // Individual product limit
+  sizes: Size[];      // Product sizes
   badges?: {
     saveRs: {
       active: boolean;
@@ -32,7 +42,9 @@ export default function WomenShop() {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [gridCols, setGridCols] = useState<3 | 4 | 6>(4); 
-  const [addingId, setAddingId] = useState<string | null>(null);
+  
+  // Quick View State
+  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
 
   useEffect(() => {
     const fetchProducts = async () => {
@@ -57,49 +69,47 @@ export default function WomenShop() {
     fetchProducts();
   }, []);
 
-  const handleAddToCart = (e: React.MouseEvent, product: Product) => {
-    e.preventDefault();
-    e.stopPropagation();
-
-    if (product.isSoldOut) return;
+  /**
+   * Final Cart Logic
+   * Triggered by QuickViewBox after user selects size/qty
+   */
+  const handleFinalAddToCart = (size: string, quantity: number) => {
+    if (!selectedProduct) return;
 
     const existingCart = JSON.parse(localStorage.getItem("cart") || "[]");
     
-    // Check if product already exists in cart
-    const isDuplicate = existingCart.find((item: any) => item._id === product._id);
+    // Check for duplicates
+    const alreadyInCart = existingCart.find(
+      (item: any) => item._id === selectedProduct._id && item.selectedSize === size
+    );
 
-    if (isDuplicate) {
-      toast.info("Item is already in your cart!", {
-        position: "bottom-right",
-        autoClose: 2000,
-        theme: "dark",
-      });
+    if (alreadyInCart) {
+      toast.info(`Item (${size}) is already in your cart!`, { theme: "dark" });
       return;
     }
 
     const cartItem = {
-      _id: product._id,
-      title: product.title,
-      price: product.totalPrice,
-      image: product.images[0]?.url,
-      quantity: 1,
-      selectedSize: "Standard" 
+      _id: selectedProduct._id,
+      title: selectedProduct.title,
+      price: selectedProduct.totalPrice,
+      image: selectedProduct.images?.[0]?.url,
+      quantity: quantity,
+      selectedSize: size,
+      cartLimit: selectedProduct.cartLimit // Injecting the specific DB limit
     };
 
     existingCart.push(cartItem);
     localStorage.setItem("cart", JSON.stringify(existingCart));
     
-    // Notify Navbar/Header components of cart changes
+    // Sync UI icons
     window.dispatchEvent(new Event("cartUpdated"));
 
-    setAddingId(product._id);
-    toast.success(`${product.title} added to cart!`, {
-      position: "bottom-right",
-      autoClose: 2000,
+    toast.success(`${selectedProduct.title} added to cart!`, {
       theme: "dark",
+      position: "bottom-right"
     });
 
-    setTimeout(() => setAddingId(null), 3000);
+    setSelectedProduct(null); // Close Modal
   };
 
   const handleLayoutChange = (cols: 3 | 4 | 6) => {
@@ -109,6 +119,15 @@ export default function WomenShop() {
   return (
     <div className="min-h-screen bg-[#FDFBF7] text-gray-80 py-20 lg:py-30">
       <ToastContainer limit={3} />
+
+      {/* QUICK VIEW MODAL */}
+      {selectedProduct && (
+        <QuickViewBox 
+          product={selectedProduct} 
+          onClose={() => setSelectedProduct(null)} 
+          onAddToCart={handleFinalAddToCart}
+        />
+      )}
 
       {/* 1. Page Title */}
       <div className="py-2 md:py-8 text-center"> 
@@ -120,7 +139,6 @@ export default function WomenShop() {
       {/* 2. Control Bar */}
       <div className="w-full h-[45px] border-y border-gray-300 flex items-center justify-between bg-transparent mt-4">
         <div className="h-full flex items-center px-4 border-r border-gray-300 gap-3">
-          {/* DESKTOP ICONS */}
           <div className="hidden md:flex gap-3">
             <button onClick={() => handleLayoutChange(3)} className={`transition-colors ${gridCols === 3 ? "text-black" : "text-gray-400 hover:text-gray-600"}`}>
                 <div className="flex gap-0.5">
@@ -137,7 +155,6 @@ export default function WomenShop() {
             </button>
           </div>
 
-          {/* MOBILE ICONS */}
           <div className="flex md:hidden gap-3">
              <button onClick={() => handleLayoutChange(3)} className={`transition-colors ${gridCols === 3 ? "text-black" : "text-gray-400 hover:text-gray-600"}`}>
                <Square size={20} strokeWidth={1.5} fill={gridCols === 3 ? "currentColor" : "none"} />
@@ -168,7 +185,6 @@ export default function WomenShop() {
         ) : products.length === 0 ? (
           <div className="flex justify-center items-center h-64 text-center flex-col gap-2">
             <p className="text-gray-400 tracking-widest text-sm uppercase">No items found</p>
-            <p className="text-[10px] text-gray-400 tracking-tighter">Please check back later for new arrivals.</p>
           </div>
         ) : (
           <div
@@ -181,15 +197,13 @@ export default function WomenShop() {
             {products.map((product) => {
               const isSaversActive = product.badges?.saveRs?.active && (product.badges?.saveRs?.amount || 0) > 0;
               const saversAmount = product.badges?.saveRs?.amount;
-              const isAdding = addingId === product._id;
 
               return (
                 <div key={product._id} className="group relative flex flex-col">
-                  {/* Image Container */}
                   <div className="relative w-full overflow-hidden bg-gray-100 aspect-[3/4]">
                     <Link href={`/product/${product._id}`} className="block w-full h-full">
                       {isSaversActive && (
-                        <div className="absolute top-3 left-3 z-20 bg-red-600 text-white text-[9px] md:text-[11px] font-bold px-2 py-1 tracking-tighter uppercase">
+                        <div className="absolute top-3 left-3 z-20 bg-red-600 text-white text-[9px] md:text-[11px] font-bold px-2 py-1 tracking-tighter uppercase shadow-sm">
                           SAVERS {saversAmount}
                         </div>
                       )}
@@ -202,31 +216,32 @@ export default function WomenShop() {
                           </div>
                       )}
 
-                      {product.images && product.images[0] ? (
+                      {product.images?.[0] ? (
                           <Image
                             src={product.images[0].url} 
                             alt={product.title}
                             fill
-                            className="object-cover object-top transition-transform duration-700 ease-out group-hover:scale-110"
+                            className="object-cover object-top transition-transform duration-700 ease-out group-hover:scale-105"
                             sizes="(max-width: 768px) 50vw, (max-width: 1200px) 33vw, 25vw"
                           />
                       ) : (
-                          <div className="flex items-center justify-center w-full h-full text-gray-300 text-xs italic font-serif">
-                            - No Image -
+                          <div className="flex items-center justify-center w-full h-full text-gray-300 text-xs italic">
+                            No Image
                           </div>
                       )}
                     </Link>
 
-                    {/* QUICK ADD BUTTON */}
+                    {/* QUICK VIEW TRIGGER */}
                     {!product.isSoldOut && (
                       <button
-                        onClick={(e) => handleAddToCart(e, product)}
-                        className={`absolute bottom-3 right-3 z-30 p-2.5 rounded-full shadow-lg transition-all duration-300 transform 
-                          ${isAdding ? 'bg-green-600 text-white translate-y-0 opacity-100' : 'bg-white text-gray-900 hover:bg-black hover:text-white md:translate-y-4 md:opacity-0 md:group-hover:translate-y-0 md:group-hover:opacity-100'}
-                          flex items-center justify-center
-                        `}
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          setSelectedProduct(product);
+                        }}
+                        className="absolute bottom-3 right-3 z-30 p-2.5 rounded-full shadow-lg transition-all duration-300 transform bg-white text-gray-900 hover:bg-black hover:text-white md:translate-y-4 md:opacity-0 md:group-hover:translate-y-0 md:group-hover:opacity-100 flex items-center justify-center"
                       >
-                        {isAdding ? <Check size={18} /> : <ShoppingBag size={18} />}
+                        <ShoppingBag size={18} />
                       </button>
                     )}
                   </div>

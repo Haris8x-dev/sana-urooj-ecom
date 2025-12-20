@@ -12,6 +12,7 @@ import FeaturedCategory from "../options/FeaturedCategory";
 import HeroVideo from "../options/HeroVideo";
 import BottomCarousal from "../options/BottomCarousal";
 import UsersManagement from "../options/UsersManagement";
+import OrdersPage from "../options/OrdersPage"
 
 // Placeholder components for other pages
 const PlaceholderComponent: React.FC<{ title: string }> = ({ title }) => (
@@ -34,7 +35,7 @@ export default function Display() {
         return <CategoryAdd/>;
       case 'CategoryEdit':
         return <CategoryEdit/>;
-      case 'FeaturedCategory':
+      case 'FeaturedCategory' :
         return <FeaturedCategory/>  
       case 'UsersManagement':
         return <UsersManagement/>;
@@ -42,6 +43,8 @@ export default function Display() {
         return <HeroVideo/>;
       case 'BottomCarousalEdit':
         return <BottomCarousal/>;
+      case 'Orders':
+        return <OrdersPage/>;
       default:
         return <PlaceholderComponent title="Admin Dashboard" />;
     }

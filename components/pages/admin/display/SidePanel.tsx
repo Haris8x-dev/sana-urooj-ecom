@@ -56,6 +56,13 @@ const MENU_ITEMS = [
       { name: "Manage Users", view: "UsersManagement" as AdminView },
     ],
   },
+  {
+    heading: "Orders",
+    icon: Users,
+    options: [
+      { name: "View Orders", view: "Orders" as AdminView },
+    ],
+  },
 ];
 
 interface SidePanelProps {

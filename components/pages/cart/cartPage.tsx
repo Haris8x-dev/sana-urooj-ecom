@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { Trash2, Plus, Minus, ShoppingBag, ArrowRight, Loader2, ShieldCheck, Truck } from "lucide-react";
+import { Trash2, Plus, Minus, ShoppingBag, ArrowRight, Loader2, CreditCard } from "lucide-react";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 
@@ -13,7 +13,7 @@ interface CartItem {
   price: number;
   image: string;
   quantity: number;
-  cartLimit: number; // Ensure this is always a number
+  cartLimit: number;
   selectedSize: string;
 }
 
@@ -21,206 +21,201 @@ export default function CartPage() {
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  // 1. Sync local cart with real Database details
-  const fetchRealTimeDetails = async (localCart: CartItem[]) => {
-    try {
-      const updatedCart = await Promise.all(
-        localCart.map(async (item) => {
-          try {
-            const res = await fetch(`/api/products/${item._id}`);
-            if (res.ok) {
-              const data = await res.json();
-              const product = data.product;
-              
-              return {
-                ...item,
-                title: product.title || item.title,
-                price: product.totalPrice || product.price || item.price,
-                // Fallback to 5 or item.cartLimit if DB value is missing
-                cartLimit: Number(product.cartLimit) || Number(item.cartLimit) || 5, 
-                image: product.images?.[0]?.url || item.image,
-              };
-            }
-          } catch (err) {
-            console.error(`Failed to sync item ${item._id}:`, err);
-          }
-          return item;
-        })
-      );
-      
-      setCartItems(updatedCart);
-      localStorage.setItem("cart", JSON.stringify(updatedCart));
-    } catch (error) {
-      console.error("Error syncing cart with database:", error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
   useEffect(() => {
-    const savedCart = localStorage.getItem("cart");
-    if (savedCart) {
-      const parsedCart = JSON.parse(savedCart);
-      fetchRealTimeDetails(parsedCart);
-    } else {
+    const loadCart = () => {
+      const savedCart = JSON.parse(localStorage.getItem("cart") || "[]");
+      setCartItems(savedCart);
       setIsLoading(false);
-    }
-
-    const handleUpdate = () => {
-      const updated = localStorage.getItem("cart");
-      if (updated) setCartItems(JSON.parse(updated));
     };
-
-    window.addEventListener("cartUpdated", handleUpdate);
-    return () => window.removeEventListener("cartUpdated", handleUpdate);
+    loadCart();
   }, []);
 
-  const updateStorage = (newCart: CartItem[]) => {
-    setCartItems(newCart);
-    localStorage.setItem("cart", JSON.stringify(newCart));
-    window.dispatchEvent(new Event("cartUpdated"));
-  };
+  const updateQuantity = (id: string, size: string, delta: number) => {
+    const updated = cartItems.map((item) => {
+      if (item._id === id && item.selectedSize === size) {
+        const limit = item.cartLimit || 5;
 
-  const handleQtyChange = (id: string, type: "inc" | "dec") => {
-    let limitReached = false;
-    let currentLimit = 5;
-
-    const newCart = cartItems.map((item) => {
-      if (item._id === id) {
-        // Ensure we are working with numbers
-        const itemLimit = Number(item.cartLimit) || 5;
-        currentLimit = itemLimit;
-
-        if (type === "inc") {
-          if (item.quantity < itemLimit) {
-            return { ...item, quantity: item.quantity + 1 };
-          } else {
-            limitReached = true;
-            return item;
-          }
-        } else if (type === "dec" && item.quantity > 1) {
-          return { ...item, quantity: item.quantity - 1 };
+        // Check if user is trying to exceed limit
+        if (delta > 0 && item.quantity >= limit) {
+          toast.warn(`The Add to cart limit for this product is ${limit}`, {
+            theme: "dark",
+            position: "bottom-center",
+            autoClose: 2000,
+          });
+          return item;
         }
+
+        const newQty = Math.max(1, Math.min(item.quantity + delta, limit));
+        return { ...item, quantity: newQty };
       }
       return item;
     });
 
-    if (limitReached) {
-      toast.warn(`Maximum limit reached: Only ${currentLimit} units allowed.`, {
-        theme: "dark",
-        position: "bottom-center"
-      });
-      return; // Don't update storage if nothing changed
-    }
-
-    updateStorage(newCart);
+    setCartItems(updated);
+    localStorage.setItem("cart", JSON.stringify(updated));
+    window.dispatchEvent(new Event("cartUpdated"));
   };
 
-  const removeItem = (id: string) => {
-    const newCart = cartItems.filter((item) => item._id !== id);
-    updateStorage(newCart);
-    toast.error("Item removed from cart", { position: "bottom-center", autoClose: 1500 });
+  const removeItem = (id: string, size: string) => {
+    const updated = cartItems.filter((item) => !(item._id === id && item.selectedSize === size));
+    setCartItems(updated);
+    localStorage.setItem("cart", JSON.stringify(updated));
+    window.dispatchEvent(new Event("cartUpdated"));
+    toast.error("Item removed from cart", { theme: "dark", position: "bottom-right" });
   };
 
   const subtotal = cartItems.reduce((acc, item) => acc + item.price * item.quantity, 0);
 
   if (isLoading) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-white">
-        <Loader2 className="animate-spin text-black mb-4" size={40} />
-        <p className="text-[10px] uppercase tracking-[0.3em] font-medium animate-pulse">Synchronizing Inventory...</p>
+      <div className="min-h-screen flex flex-col items-center justify-center bg-[#FDFBF7]">
+        <Loader2 className="animate-spin text-gray-400 mb-4" size={32} />
+        <p className="text-[10px] uppercase tracking-[0.3em] text-gray-500">Securing your selection...</p>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-[#FDFBF7] text-[#1a1a1a]">
+    <div className="min-h-screen bg-[#FDFBF7] text-gray-900 pb-20 pt-32 px-4 md:px-10 lg:px-20">
       <ToastContainer limit={2} />
       
-      <div className="max-w-7xl mx-auto px-6 py-20 lg:py-32">
-        <div className="flex flex-col items-center mb-16 text-center">
-          <h1 className="text-2xl md:text-3xl font-serif tracking-tight mb-4 italic">Shopping Bag</h1>
-          <div className="h-[1px] w-12 bg-black mb-4"></div>
-          <p className="text-[10px] uppercase tracking-[0.2em] text-gray-500">
-            {cartItems.length} {cartItems.length === 1 ? "Item" : "Items"} ready for checkout
-          </p>
-        </div>
+      {/* Header */}
+      <div className="mb-12 border-b border-gray-200 pb-8 lg:pt-6">
+        <h1 className="text-3xl md:text-5xl font-serif italic tracking-tight">Shopping bag</h1>
+        <p className="text-[10px] uppercase tracking-[0.2em] text-gray-400 mt-2">
+          {cartItems.length} {cartItems.length === 1 ? "Item" : "Items"} in your collection
+        </p>
+      </div>
 
-        {cartItems.length === 0 ? (
-          <div className="max-w-md mx-auto text-center py-20">
-            <div className="bg-white p-12 border border-gray-100 shadow-sm rounded-sm">
-              <ShoppingBag size={40} className="mx-auto mb-6 text-gray-200" strokeWidth={1} />
-              <h2 className="text-sm font-medium uppercase tracking-widest mb-2">Empty Cart</h2>
-              <p className="text-xs text-gray-400 mb-8 leading-relaxed">Your selection is currently empty.</p>
-              <Link href="/" className="inline-block bg-black text-white px-10 py-4 text-[10px] font-bold uppercase tracking-widest">
-                Start Shopping
-              </Link>
-            </div>
-          </div>
-        ) : (
-          <div className="flex flex-col lg:flex-row gap-20 items-start">
-            <div className="w-full lg:flex-grow space-y-12">
-              {cartItems.map((item) => (
-                <div key={`${item._id}-${item.selectedSize}`} className="flex flex-col sm:flex-row gap-8 pb-12 border-b border-gray-100 animate-in fade-in slide-in-from-bottom-4 duration-500">
-                  <div className="relative w-full sm:w-40 aspect-[3/4] overflow-hidden bg-gray-100">
-                    <Image src={item.image} alt={item.title} fill className="object-cover" />
+      {cartItems.length === 0 ? (
+        <div className="flex flex-col items-center py-20 text-center">
+          <ShoppingBag size={40} className="text-gray-200 mb-6" strokeWidth={1} />
+          <h2 className="text-lg uppercase tracking-widest font-light">Your bag is empty</h2>
+          <Link href="/shop" className="mt-8 text-[11px] font-bold uppercase tracking-[0.3em] border-b-2 border-black pb-1 hover:text-gray-500 hover:border-gray-300 transition-all">
+            Start Shopping
+          </Link>
+        </div>
+      ) : (
+        <div className="flex flex-col lg:flex-row gap-16">
+          
+          {/* 1. PRODUCT LIST */}
+          <div className="flex-grow space-y-10">
+            {cartItems.map((item) => {
+              const isAtLimit = item.quantity >= (item.cartLimit || 5);
+
+              return (
+                <div key={`${item._id}-${item.selectedSize}`} className="group relative flex gap-6 md:gap-10 border-b border-gray-100 pb-10 transition-all">
+                  <div className="relative w-24 h-32 md:w-40 md:h-52 bg-gray-50 overflow-hidden shrink-0">
+                    <Image
+                      src={item.image}
+                      alt={item.title}
+                      fill
+                      className="object-cover group-hover:scale-105 transition-transform duration-700"
+                    />
                   </div>
 
-                  <div className="flex flex-col flex-grow py-2">
-                    <div className="flex justify-between items-start mb-4">
-                      <div className="space-y-1">
-                        <h3 className="text-sm font-bold uppercase tracking-widest">{item.title}</h3>
-                        <div className="flex gap-4 text-[10px] text-gray-400 uppercase tracking-tighter">
-                          <p>Size: <span className="text-black font-medium">{item.selectedSize}</span></p>
-                          <p>Price: <span className="text-black font-medium">Rs. {item.price.toLocaleString()}</span></p>
-                        </div>
+                  <div className="flex flex-col justify-between flex-grow">
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <h3 className="text-xs md:text-sm font-bold uppercase tracking-widest leading-relaxed max-w-[200px] md:max-w-md">
+                          {item.title}
+                        </h3>
+                        <p className="text-[10px] text-gray-400 uppercase tracking-tighter mt-1 italic">
+                          Size: {item.selectedSize}
+                        </p>
                       </div>
-                      <button onClick={() => removeItem(item._id)} className="text-gray-300 hover:text-red-600 transition-colors">
+                      <button 
+                        onClick={() => removeItem(item._id, item.selectedSize)}
+                        className="text-red-800 hover:text-gray-300 transition-colors"
+                      >
                         <Trash2 size={16} strokeWidth={1.5} />
                       </button>
                     </div>
 
-                    <div className="mt-auto flex items-center justify-between">
-                      <div className="flex items-center bg-white border border-gray-200 rounded-full px-2 py-1 shadow-sm">
-                        <button onClick={() => handleQtyChange(item._id, "dec")} className="w-8 h-8 flex items-center justify-center text-gray-400 hover:text-black">
-                          <Minus size={12} />
+                    <div className="flex items-end justify-between mt-6">
+                      {/* Quantity Selector */}
+                      <div className="flex items-center border border-gray-200 rounded-full px-3 py-1 scale-90 md:scale-100 origin-left">
+                        <button 
+                          onClick={() => updateQuantity(item._id, item.selectedSize, -1)} 
+                          className="p-1 hover:text-gray-400 transition-colors"
+                        >
+                          <Minus size={14} />
                         </button>
-                        <span className="w-10 text-center text-xs font-mono font-bold">{item.quantity}</span>
-                        <button onClick={() => handleQtyChange(item._id, "inc")} className="w-8 h-8 flex items-center justify-center text-gray-400 hover:text-black">
-                          <Plus size={12} />
+                        <span className="px-4 text-xs font-mono font-bold">{item.quantity}</span>
+                        <button 
+                          onClick={() => updateQuantity(item._id, item.selectedSize, 1)} 
+                          className={`p-1 transition-all ${isAtLimit ? 'opacity-30 cursor-not-allowed' : 'hover:text-gray-400'}`}
+                        >
+                          <Plus size={14} />
                         </button>
                       </div>
 
-                      <div className="text-right font-mono text-sm font-bold">
-                        Rs. {(item.price * item.quantity).toLocaleString()}
+                      <div className="text-right">
+                         <p className="text-[10px] text-gray-400 uppercase tracking-widest mb-1">Price per unit</p>
+                         <p className="text-sm font-mono font-bold">Rs. {item.price.toLocaleString()}</p>
                       </div>
                     </div>
                   </div>
                 </div>
-              ))}
-            </div>
+              );
+            })}
+          </div>
 
-            <div className="w-full lg:w-[400px] lg:sticky lg:top-32 bg-white p-10 border border-gray-100 shadow-xl rounded-sm">
-              <h2 className="text-xs font-bold uppercase tracking-[0.3em] mb-10 text-center">Summary</h2>
-              <div className="space-y-6 mb-10">
-                <div className="flex justify-between text-[11px] uppercase tracking-wider text-gray-500">
-                  <span>Cart Subtotal</span>
-                  <span className="text-black font-medium font-mono">Rs. {subtotal.toLocaleString()}</span>
+          {/* 2. INVOICE SUMMARY SECTION */}
+          <div className="w-full lg:w-[450px]">
+            <div className="bg-white border border-gray-900 p-8 md:p-10 sticky top-32 shadow-[20px_20px_0px_0px_rgba(0,0,0,0.05)]">
+              <div className="flex justify-between items-center mb-10 border-b border-gray-100 pb-4">
+                <h2 className="text-xs font-black uppercase tracking-[0.4em]">Invoice Summary</h2>
+                <CreditCard size={18} className="text-gray-400" />
+              </div>
+
+              <div className="space-y-4 mb-10 max-h-[250px] overflow-y-auto pr-2 custom-scrollbar">
+                {cartItems.map((item) => (
+                  <div key={`${item._id}-${item.selectedSize}`} className="flex flex-col text-[10px] uppercase tracking-widest border-b border-dotted border-gray-200 pb-3">
+                    <div className="flex justify-between font-bold text-gray-800">
+                      <span>{item.title}</span>
+                      <span>Rs. {(item.price * item.quantity).toLocaleString()}</span>
+                    </div>
+                    <div className="flex justify-between text-gray-400 mt-1 lowercase italic">
+                      <span>{item.selectedSize} × {item.quantity}</span>
+                      <span className="text-[9px]">Subtotal</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div className="space-y-4 pt-4">
+                <div className="flex justify-between text-[11px] uppercase tracking-widest text-gray-500">
+                  <span>Shipping</span>
+                  <span className="text-green-600 font-bold">Calculated at Checkout</span>
                 </div>
-                <div className="pt-6 border-t border-gray-100 flex justify-between items-baseline">
-                  <span className="text-xs font-bold uppercase tracking-[0.2em]">Total</span>
-                  <span className="text-2xl font-mono font-bold">Rs. {subtotal.toLocaleString()}</span>
+                
+                <div className="pt-6 mt-6 border-t-[3px] border-double border-gray-900 flex justify-between items-center">
+                  <span className="text-xs font-black uppercase tracking-[0.3em]">Total Amount</span>
+                  <div className="text-right">
+                    <span className="text-2xl font-mono font-black">Rs. {subtotal.toLocaleString()}</span>
+                    <p className="text-[8px] text-gray-400 uppercase mt-1 italic tracking-widest">Taxes included</p>
+                  </div>
                 </div>
               </div>
 
-              <Link href="/checkout" className="w-full bg-[#1a1a1a] text-white py-5 text-[10px] font-bold uppercase tracking-[0.3em] flex items-center justify-center hover:bg-black transition-all">
+              <Link 
+                href="/checkout" 
+                className="group mt-10 w-full bg-black text-white py-5 text-[10px] font-bold uppercase tracking-[0.4em] flex items-center justify-center transition-all hover:bg-white hover:text-black border border-black"
+              >
                 Proceed to Checkout
-                <ArrowRight size={14} className="ml-2" />
+                <ArrowRight size={14} className="ml-3 group-hover:translate-x-2 transition-transform" />
               </Link>
+
+              <div className="mt-6 flex items-center justify-center gap-2 opacity-30 grayscale">
+                 <div className="h-px bg-gray-300 w-10"></div>
+                 <span className="text-[8px] uppercase tracking-[0.2em] font-bold">Secure Checkout</span>
+                 <div className="h-px bg-gray-300 w-10"></div>
+              </div>
             </div>
           </div>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   );
 }
