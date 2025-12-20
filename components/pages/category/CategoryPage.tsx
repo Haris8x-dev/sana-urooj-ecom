@@ -7,19 +7,29 @@ import { LayoutGrid, Grid3X3, Grid2X2, ChevronDown, Square, ShoppingBag, Check }
 import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 
+// Import the QuickViewBox component
+import QuickViewBox from "@/components/layouts/QuickViewBox";
+
 // --- INTERFACES ---
 interface ImageObject {
   url: string;
   fileId: string;
 }
 
+interface Size {
+  name: string;
+  quantity: number | string;
+}
+
 interface Product {
   _id: string;
   title: string;
-  price: number;      // Original Price
-  totalPrice: number; // Final Price from DB
+  price: number;
+  totalPrice: number;
   images: ImageObject[];
   isSoldOut: boolean;
+  cartLimit: number; // Added for QuickViewBox
+  sizes: Size[];    // Added for QuickViewBox
   badges?: {
     saveRs: {
       active: boolean;
@@ -58,7 +68,9 @@ export default function CategoryPage({ categoryId }: CategoryPageProps) {
   const [loading, setLoading] = useState(true);
   const [categoryTitle, setCategoryTitle] = useState(formatTitleFromId(categoryId)); 
   const [gridCols, setGridCols] = useState<3 | 4 | 6>(4); 
-  const [addingId, setAddingId] = useState<string | null>(null);
+  
+  // Quick View State
+  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
 
   useEffect(() => {
     if (!categoryId) {
@@ -91,45 +103,45 @@ export default function CategoryPage({ categoryId }: CategoryPageProps) {
     fetchCategoryProducts();
   }, [categoryId]);
 
-  const handleAddToCart = (e: React.MouseEvent, product: Product) => {
-    e.preventDefault();
-    e.stopPropagation();
-
-    if (product.isSoldOut) return;
+  // ACTUAL CART LOGIC (Called from inside QuickViewBox)
+  const handleFinalAddToCart = (size: string, quantity: number) => {
+    if (!selectedProduct) return;
 
     const existingCart = JSON.parse(localStorage.getItem("cart") || "[]");
-    const isDuplicate = existingCart.find((item: any) => item._id === product._id);
+    
+    // Check if the exact product + size combo already exists
+    const isDuplicate = existingCart.find(
+      (item: any) => item._id === selectedProduct._id && item.selectedSize === size
+    );
 
     if (isDuplicate) {
-      toast.info("Item is already in your cart!", {
-        position: "bottom-right",
-        autoClose: 2000,
-        theme: "dark",
-      });
+      toast.info(`This item (${size}) is already in your cart!`, { theme: "dark" });
       return;
     }
 
     const cartItem = {
-      _id: product._id,
-      title: product.title,
-      price: product.totalPrice || product.price,
-      image: product.images[0]?.url,
-      quantity: 1,
-      selectedSize: "Standard"
+      _id: selectedProduct._id,
+      title: selectedProduct.title,
+      price: selectedProduct.totalPrice || selectedProduct.price,
+      image: selectedProduct.images[0]?.url,
+      quantity: quantity,
+      selectedSize: size,
+      cartLimit: selectedProduct.cartLimit
     };
 
     existingCart.push(cartItem);
     localStorage.setItem("cart", JSON.stringify(existingCart));
+    
+    // Sync Navbar
     window.dispatchEvent(new Event("cartUpdated"));
 
-    setAddingId(product._id);
-    toast.success(`${product.title} added to cart!`, {
+    toast.success(`${selectedProduct.title} added to cart!`, {
       position: "bottom-right",
       autoClose: 2000,
       theme: "dark",
     });
 
-    setTimeout(() => setAddingId(null), 3000);
+    setSelectedProduct(null); // Close modal
   };
 
   const handleLayoutChange = (cols: 3 | 4 | 6) => {
@@ -139,6 +151,15 @@ export default function CategoryPage({ categoryId }: CategoryPageProps) {
   return (
     <div className="min-h-screen bg-[#FDFBF7] text-gray-80 py-20 lg:py-30">
       <ToastContainer limit={3} />
+
+      {/* QUICK VIEW MODAL */}
+      {selectedProduct && (
+        <QuickViewBox 
+          product={selectedProduct}
+          onClose={() => setSelectedProduct(null)}
+          onAddToCart={handleFinalAddToCart}
+        />
+      )}
 
       {/* 1. Page Title */}
       <div className="py-2 md:py-8 text-center"> 
@@ -209,7 +230,6 @@ export default function CategoryPage({ categoryId }: CategoryPageProps) {
           >
             {products.map((product) => {
               const isSaversActive = product.badges?.saveRs?.active && (product.badges?.saveRs?.amount || 0) > 0;
-              const isAdding = addingId === product._id;
 
               return (
                 <div key={product._id} className="group relative flex flex-col">
@@ -245,16 +265,16 @@ export default function CategoryPage({ categoryId }: CategoryPageProps) {
                         )}
                     </Link>
 
-                    {/* ADD TO CART BUTTON */}
+                    {/* ADD TO CART BUTTON (Now opens QuickView) */}
                     {!product.isSoldOut && (
                       <button
-                        onClick={(e) => handleAddToCart(e, product)}
-                        className={`absolute bottom-3 right-3 z-30 p-2.5 rounded-full shadow-lg transition-all duration-300 transform 
-                          ${isAdding ? 'bg-green-600 text-white scale-110' : 'bg-white text-gray-900 hover:bg-black hover:text-white md:translate-y-4 md:opacity-0 md:group-hover:translate-y-0 md:group-hover:opacity-100'}
-                          flex items-center justify-center
-                        `}
+                        onClick={(e) => {
+                          e.preventDefault();
+                          setSelectedProduct(product);
+                        }}
+                        className="absolute bottom-3 right-3 z-30 p-2.5 rounded-full shadow-lg transition-all duration-300 transform bg-white text-gray-900 hover:bg-black hover:text-white md:translate-y-4 md:opacity-0 md:group-hover:translate-y-0 md:group-hover:opacity-100 flex items-center justify-center"
                       >
-                        {isAdding ? <Check size={18} /> : <ShoppingBag size={18} />}
+                        <ShoppingBag size={18} />
                       </button>
                     )}
                   </div>

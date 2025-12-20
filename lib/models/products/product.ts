@@ -152,7 +152,7 @@ const ProductSchema = new Schema<iProduct>(
     },
     cartLimit: { 
       type: Number,
-      default: 10, 
+      default: 5, 
       min: 1,
       required: true,
     },

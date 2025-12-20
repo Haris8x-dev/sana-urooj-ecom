@@ -3,13 +3,21 @@
 import React, { useState, useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { LayoutGrid, Grid3X3, Grid2X2, ChevronDown, Square, ShoppingBag, Check } from "lucide-react"; 
+import { LayoutGrid, Grid3X3, Grid2X2, ChevronDown, Square, ShoppingBag, Check } from "lucide-react";
 import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
+
+// Import the QuickViewBox component
+import QuickViewBox from "@/components/layouts/QuickViewBox";
 
 interface ImageObject {
   url: string;
   fileId: string;
+}
+
+interface Size {
+  name: string;
+  quantity: number | string;
 }
 
 interface Product {
@@ -19,6 +27,8 @@ interface Product {
   totalPrice: number; // Final Price
   images: ImageObject[];
   isSoldOut: boolean;
+  cartLimit: number;   // Individual cart limit
+  sizes: Size[];       // Product sizes
   badges?: {
     saveRs: {
       active: boolean;
@@ -30,8 +40,10 @@ interface Product {
 export default function Shop() {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
-  const [gridCols, setGridCols] = useState<3 | 4 | 6>(4); 
-  const [addingId, setAddingId] = useState<string | null>(null);
+  const [gridCols, setGridCols] = useState<3 | 4 | 6>(4);
+
+  // Quick View State
+  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
 
   useEffect(() => {
     const fetchProducts = async () => {
@@ -51,49 +63,48 @@ export default function Shop() {
     fetchProducts();
   }, []);
 
-  const handleAddToCart = (e: React.MouseEvent, product: Product) => {
-    e.preventDefault();
-    e.stopPropagation();
-
-    if (product.isSoldOut) return;
+  /**
+   * CART ADDITION LOGIC - Called from QuickViewBox
+   * Enforces individual product cartLimit
+   */
+  const handleFinalAddToCart = (size: string, quantity: number) => {
+    if (!selectedProduct) return;
 
     const existingCart = JSON.parse(localStorage.getItem("cart") || "[]");
-    
-    // Check if product already exists in cart to prevent duplicates
-    const isDuplicate = existingCart.find((item: any) => item._id === product._id);
 
-    if (isDuplicate) {
-      toast.info("Item is already in your cart!", {
-        position: "bottom-right",
-        autoClose: 2000,
-        theme: "dark",
-      });
+    // Check for duplicates (same product + size)
+    const alreadyInCart = existingCart.find(
+      (item: any) => item._id === selectedProduct._id && item.selectedSize === size
+    );
+
+    if (alreadyInCart) {
+      toast.info(`This item (${size}) is already in your cart!`, { theme: "dark" });
       return;
     }
 
+    // Prepare the cart item
     const cartItem = {
-      _id: product._id,
-      title: product.title,
-      price: product.totalPrice,
-      image: product.images[0]?.url,
-      quantity: 1,
-      selectedSize: "Standard" 
+      _id: selectedProduct._id,
+      title: selectedProduct.title,
+      price: selectedProduct.totalPrice,
+      image: selectedProduct.images?.[0]?.url,
+      quantity: quantity,
+      selectedSize: size,
+      cartLimit: selectedProduct.cartLimit
     };
 
     existingCart.push(cartItem);
     localStorage.setItem("cart", JSON.stringify(existingCart));
-    
-    // Notify Navbar to update cart count
+
+    // Trigger update for navigation cart icons
     window.dispatchEvent(new Event("cartUpdated"));
 
-    setAddingId(product._id);
-    toast.success(`${product.title} added to cart!`, {
-      position: "bottom-right",
-      autoClose: 2000,
+    toast.success(`${selectedProduct.title} added to cart!`, {
       theme: "dark",
+      position: "bottom-right"
     });
 
-    setTimeout(() => setAddingId(null), 3000);
+    setSelectedProduct(null); // Close modal
   };
 
   const handleLayoutChange = (cols: 3 | 4 | 6) => {
@@ -104,8 +115,17 @@ export default function Shop() {
     <div className="min-h-screen bg-[#FDFBF7] text-gray-80 py-20 lg:py-30">
       <ToastContainer limit={3} />
 
+      {/* QUICK VIEW MODAL */}
+      {selectedProduct && (
+        <QuickViewBox
+          product={selectedProduct}
+          onClose={() => setSelectedProduct(null)}
+          onAddToCart={handleFinalAddToCart}
+        />
+      )}
+
       {/* 1. Page Title */}
-      <div className="py-2 md:py-8 text-center"> 
+      <div className="py-2 md:py-8 text-center">
         <h1 className="text-md tracking-widest text-gray-900 navItems uppercase font-mono py-4">
           Shop Products
         </h1>
@@ -116,38 +136,38 @@ export default function Shop() {
         <div className="h-full flex items-center px-4 border-r border-gray-300 gap-3">
           <div className="hidden md:flex gap-3">
             <button onClick={() => handleLayoutChange(3)} className={`transition-colors ${gridCols === 3 ? "text-black" : "text-gray-400 hover:text-gray-600"}`}>
-                <div className="flex gap-0.5">
-                    <div className="w-3 h-4 bg-current"></div>
-                    <div className="w-3 h-4 bg-current"></div>
-                    <div className="w-3 h-4 bg-current"></div>
-                </div>
+              <div className="flex gap-0.5">
+                <div className="w-3 h-4 bg-current"></div>
+                <div className="w-3 h-4 bg-current"></div>
+                <div className="w-3 h-4 bg-current"></div>
+              </div>
             </button>
             <button onClick={() => handleLayoutChange(4)} className={`transition-colors ${gridCols === 4 ? "text-black" : "text-gray-400 hover:text-gray-600"}`}>
-                <LayoutGrid size={20} strokeWidth={1.5} />
+              <LayoutGrid size={20} strokeWidth={1.5} />
             </button>
             <button onClick={() => handleLayoutChange(6)} className={`transition-colors ${gridCols === 6 ? "text-black" : "text-gray-400 hover:text-gray-600"}`}>
-                <Grid3X3 size={20} strokeWidth={1.5} />
+              <Grid3X3 size={20} strokeWidth={1.5} />
             </button>
           </div>
 
           <div className="flex md:hidden gap-3">
-             <button onClick={() => handleLayoutChange(3)} className={`transition-colors ${gridCols === 3 ? "text-black" : "text-gray-400 hover:text-gray-600"}`}>
-               <Square size={20} strokeWidth={1.5} fill={gridCols === 3 ? "currentColor" : "none"} />
+            <button onClick={() => handleLayoutChange(3)} className={`transition-colors ${gridCols === 3 ? "text-black" : "text-gray-400 hover:text-gray-600"}`}>
+              <Square size={20} strokeWidth={1.5} fill={gridCols === 3 ? "currentColor" : "none"} />
             </button>
             <button onClick={() => handleLayoutChange(4)} className={`transition-colors ${gridCols === 4 ? "text-black" : "text-gray-400 hover:text-gray-600"}`}>
-                <Grid2X2 size={20} strokeWidth={1.5} />
+              <Grid2X2 size={20} strokeWidth={1.5} />
             </button>
           </div>
         </div>
 
         <div className="h-full flex items-center px-0 gap-0">
-            <div className="flex items-center gap-1 cursor-pointer group h-full px-4 border-r border-gray-300">
-              <span className="text-xs font-medium tracking-wide text-gray-600 group-hover:text-black">SORT BY</span>
-              <ChevronDown size={14} className="text-gray-400 group-hover:text-black"/>
-            </div>
-            <button className="text-xs font-medium tracking-wide text-gray-600 hover:text-black uppercase h-full flex items-center px-4 border-l border-gray-300">
-              Filter
-            </button>
+          <div className="flex items-center gap-1 cursor-pointer group h-full px-4 border-r border-gray-300">
+            <span className="text-xs font-medium tracking-wide text-gray-600 group-hover:text-black">SORT BY</span>
+            <ChevronDown size={14} className="text-gray-400 group-hover:text-black" />
+          </div>
+          <button className="text-xs font-medium tracking-wide text-gray-600 hover:text-black uppercase h-full flex items-center px-4 border-l border-gray-300">
+            Filter
+          </button>
         </div>
       </div>
 
@@ -168,7 +188,6 @@ export default function Shop() {
             {products.map((product) => {
               const isSaversActive = product.badges?.saveRs?.active && (product.badges?.saveRs?.amount || 0) > 0;
               const saversAmount = product.badges?.saveRs?.amount;
-              const isAdding = addingId === product._id;
 
               return (
                 <div key={product._id} className="group relative flex flex-col">
@@ -182,38 +201,39 @@ export default function Shop() {
                       )}
 
                       {product.isSoldOut && (
-                          <div className="absolute bottom-2 left-2 z-10 bg-white/90 px-2 py-1">
-                              <span className="text-[10px] font-bold tracking-widest text-gray-500 uppercase">
-                                  Sold Out
-                              </span>
-                          </div>
+                        <div className="absolute bottom-2 left-2 z-10 bg-white/90 px-2 py-1">
+                          <span className="text-[10px] font-bold tracking-widest text-gray-500 uppercase">
+                            Sold Out
+                          </span>
+                        </div>
                       )}
 
                       {product.images && product.images[0] ? (
-                          <Image
-                            src={product.images[0].url} 
-                            alt={product.title}
-                            fill
-                            className="object-cover object-top transition-transform duration-700 ease-out group-hover:scale-105"
-                            sizes="(max-width: 768px) 50vw, (max-width: 1200px) 33vw, 25vw"
-                          />
+                        <Image
+                          src={product.images[0].url}
+                          alt={product.title}
+                          fill
+                          className="object-cover object-top transition-transform duration-700 ease-out group-hover:scale-105"
+                          sizes="(max-width: 768px) 50vw, (max-width: 1200px) 33vw, 25vw"
+                        />
                       ) : (
-                          <div className="flex items-center justify-center w-full h-full text-gray-300 text-xs">
+                        <div className="flex items-center justify-center w-full h-full text-gray-300 text-xs">
                           No Image
-                          </div>
+                        </div>
                       )}
                     </Link>
 
-                    {/* ADD TO CART OVERLAY BUTTON */}
+                    {/* ADD TO CART BUTTON - Opens QuickView */}
                     {!product.isSoldOut && (
                       <button
-                        onClick={(e) => handleAddToCart(e, product)}
-                        className={`absolute bottom-3 right-3 z-30 p-2.5 rounded-full shadow-lg transition-all duration-300 transform 
-                          ${isAdding ? 'bg-green-600 text-white' : 'bg-white text-gray-900 hover:bg-black hover:text-white'}
-                          md:translate-y-4 md:opacity-0 md:group-hover:translate-y-0 md:group-hover:opacity-100 flex items-center justify-center
-                        `}
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          setSelectedProduct(product);
+                        }}
+                        className="absolute bottom-3 right-3 z-30 p-2.5 rounded-full shadow-lg transition-all duration-300 transform bg-white text-gray-900 hover:bg-black hover:text-white md:translate-y-4 md:opacity-0 md:group-hover:translate-y-0 md:group-hover:opacity-100 flex items-center justify-center"
                       >
-                        {isAdding ? <Check size={18} /> : <ShoppingBag size={18} />}
+                        <ShoppingBag size={18} />
                       </button>
                     )}
                   </div>
@@ -226,7 +246,7 @@ export default function Shop() {
                           {product.title}
                         </h3>
                       </Link>
-                      
+
                       <div className="flex items-center justify-center gap-2">
                         {isSaversActive ? (
                           <>

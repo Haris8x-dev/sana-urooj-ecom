@@ -3,11 +3,21 @@
 import React, { useState, useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { LayoutGrid, Grid3X3, Grid2X2, ChevronDown, Square } from "lucide-react"; 
+import { LayoutGrid, Grid3X3, Grid2X2, ChevronDown, Square, ShoppingBag } from "lucide-react";
+import { ToastContainer } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
+
+// Import the QuickViewBox component
+import QuickViewBox from "@/components/layouts/QuickViewBox";
 
 interface ImageObject {
   url: string;
   fileId: string;
+}
+
+interface Size {
+  name: string;
+  quantity: number | string;
 }
 
 interface Product {
@@ -18,6 +28,8 @@ interface Product {
   images: ImageObject[];
   isSoldOut: boolean;
   priority: number;   // Added priority field for filtering
+  cartLimit: number;  // Individual cart limit
+  sizes: Size[];      // Product sizes
   badges?: {
     saveRs: {
       active: boolean;
@@ -29,16 +41,19 @@ interface Product {
 export default function PriorityShop() {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
-  
+
   // State for Layout Control
-  const [gridCols, setGridCols] = useState<3 | 4 | 6>(4); 
+  const [gridCols, setGridCols] = useState<3 | 4 | 6>(4);
+
+  // Quick View State
+  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
 
   useEffect(() => {
     const fetchProducts = async () => {
       try {
         const res = await fetch("/api/products/get");
         const data = await res.json();
-        
+
         if (data.products) {
           // FILTER: Only show products where priority is 1
           const priorityProducts = data.products.filter(
@@ -56,14 +71,31 @@ export default function PriorityShop() {
     fetchProducts();
   }, []);
 
+  /**
+   * Callback from QuickViewBox - cart logic is handled in QuickViewBox itself
+   */
+  const handleAddToCart = () => {
+    setSelectedProduct(null);
+  };
+
   const handleLayoutChange = (cols: 3 | 4 | 6) => {
     setGridCols(cols);
   };
 
   return (
     <div className="min-h-screen bg-[#FDFBF7] text-gray-80 py-20 lg:py-30">
+      <ToastContainer limit={3} />
+
+      {/* QUICK VIEW MODAL */}
+      {selectedProduct && (
+        <QuickViewBox
+          product={selectedProduct}
+          onClose={() => setSelectedProduct(null)}
+          onAddToCart={handleAddToCart}
+        />
+      )}
       {/* 1. Page Title */}
-      <div className="py-2 md:py-8 text-center"> 
+      <div className="py-2 md:py-8 text-center">
         <h1 className="text-md tracking-widest text-gray-900 navItems uppercase font-mono py-4">
           Featured Collection
         </h1>
@@ -75,39 +107,39 @@ export default function PriorityShop() {
           {/* DESKTOP ICONS */}
           <div className="hidden md:flex gap-3">
             <button onClick={() => handleLayoutChange(3)} className={`transition-colors ${gridCols === 3 ? "text-black" : "text-gray-400 hover:text-gray-600"}`}>
-                <div className="flex gap-0.5">
-                    <div className="w-3 h-4 bg-current"></div>
-                    <div className="w-3 h-4 bg-current"></div>
-                    <div className="w-3 h-4 bg-current"></div>
-                </div>
+              <div className="flex gap-0.5">
+                <div className="w-3 h-4 bg-current"></div>
+                <div className="w-3 h-4 bg-current"></div>
+                <div className="w-3 h-4 bg-current"></div>
+              </div>
             </button>
             <button onClick={() => handleLayoutChange(4)} className={`transition-colors ${gridCols === 4 ? "text-black" : "text-gray-400 hover:text-gray-600"}`}>
-                <LayoutGrid size={20} strokeWidth={1.5} />
+              <LayoutGrid size={20} strokeWidth={1.5} />
             </button>
             <button onClick={() => handleLayoutChange(6)} className={`transition-colors ${gridCols === 6 ? "text-black" : "text-gray-400 hover:text-gray-600"}`}>
-                <Grid3X3 size={20} strokeWidth={1.5} />
+              <Grid3X3 size={20} strokeWidth={1.5} />
             </button>
           </div>
 
           {/* MOBILE ICONS */}
           <div className="flex md:hidden gap-3">
-             <button onClick={() => handleLayoutChange(3)} className={`transition-colors ${gridCols === 3 ? "text-black" : "text-gray-400 hover:text-gray-600"}`}>
-               <Square size={20} strokeWidth={1.5} fill={gridCols === 3 ? "currentColor" : "none"} />
+            <button onClick={() => handleLayoutChange(3)} className={`transition-colors ${gridCols === 3 ? "text-black" : "text-gray-400 hover:text-gray-600"}`}>
+              <Square size={20} strokeWidth={1.5} fill={gridCols === 3 ? "currentColor" : "none"} />
             </button>
             <button onClick={() => handleLayoutChange(4)} className={`transition-colors ${gridCols === 4 ? "text-black" : "text-gray-400 hover:text-gray-600"}`}>
-                <Grid2X2 size={20} strokeWidth={1.5} />
+              <Grid2X2 size={20} strokeWidth={1.5} />
             </button>
           </div>
         </div>
 
         <div className="h-full flex items-center px-0 gap-0">
-            <div className="flex items-center gap-1 cursor-pointer group h-full px-4 border-r border-gray-300">
-              <span className="text-xs font-medium tracking-wide text-gray-600 group-hover:text-black">SORT BY</span>
-              <ChevronDown size={14} className="text-gray-400 group-hover:text-black"/>
-            </div>
-            <button className="text-xs font-medium tracking-wide text-gray-600 hover:text-black uppercase h-full flex items-center px-4 border-l border-gray-300">
-              Filter
-            </button>
+          <div className="flex items-center gap-1 cursor-pointer group h-full px-4 border-r border-gray-300">
+            <span className="text-xs font-medium tracking-wide text-gray-600 group-hover:text-black">SORT BY</span>
+            <ChevronDown size={14} className="text-gray-400 group-hover:text-black" />
+          </div>
+          <button className="text-xs font-medium tracking-wide text-gray-600 hover:text-black uppercase h-full flex items-center px-4 border-l border-gray-300">
+            Filter
+          </button>
         </div>
       </div>
 
@@ -134,13 +166,10 @@ export default function PriorityShop() {
               const saversAmount = product.badges?.saveRs?.amount;
 
               return (
-                <Link 
-                  key={product._id} 
-                  href={`/product/${product._id}`} 
-                  className="group relative flex flex-col"
-                >
+                <div key={product._id} className="group relative flex flex-col">
                   {/* Image Container */}
                   <div className="relative w-full overflow-hidden bg-gray-100 aspect-3/4">
+                    <Link href={`/product/${product._id}`} className="block w-full h-full">
                       {/* SAVERS BADGE */}
                       {isSaversActive && (
                         <div className="absolute top-3 left-3 z-20 bg-red-600 text-white text-[9px] md:text-[11px] font-bold px-2 py-1 tracking-tighter uppercase shadow-sm">
@@ -150,36 +179,53 @@ export default function PriorityShop() {
 
                       {/* Sold Out Badge */}
                       {product.isSoldOut && (
-                          <div className="absolute bottom-2 left-2 z-10 bg-white/90 px-2 py-1">
-                              <span className="text-[10px] font-bold tracking-widest text-gray-500 uppercase">
-                                  Sold Out
-                              </span>
-                          </div>
+                        <div className="absolute bottom-2 left-2 z-10 bg-white/90 px-2 py-1">
+                          <span className="text-[10px] font-bold tracking-widest text-gray-500 uppercase">
+                            Sold Out
+                          </span>
+                        </div>
                       )}
 
                       {product.images && product.images[0] ? (
-                          <Image
-                          src={product.images[0].url} 
+                        <Image
+                          src={product.images[0].url}
                           alt={product.title}
                           fill
                           className="object-cover object-top transition-transform duration-700 ease-out group-hover:scale-105"
                           sizes="(max-width: 768px) 50vw, (max-width: 1200px) 33vw, 25vw"
-                          priority={false} 
-                          />
+                          priority={false}
+                        />
                       ) : (
-                          <div className="flex items-center justify-center w-full h-full text-gray-300 text-xs">
+                        <div className="flex items-center justify-center w-full h-full text-gray-300 text-xs">
                           No Image
-                          </div>
+                        </div>
                       )}
+                    </Link>
+
+                    {/* ADD TO CART BUTTON - Opens QuickView */}
+                    {!product.isSoldOut && (
+                      <button
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          setSelectedProduct(product);
+                        }}
+                        className="absolute bottom-3 right-3 z-30 p-2.5 rounded-full shadow-lg transition-all duration-300 transform bg-white text-gray-900 hover:bg-black hover:text-white md:translate-y-4 md:opacity-0 md:group-hover:translate-y-0 md:group-hover:opacity-100 flex items-center justify-center"
+                      >
+                        <ShoppingBag size={18} />
+                      </button>
+                    )}
                   </div>
 
                   {/* Product Details */}
                   {gridCols !== 6 && (
                     <div className="mt-4 text-center space-y-1">
-                      <h3 className="text-xs font-medium tracking-widest text-gray-900 uppercase">
-                        {product.title}
-                      </h3>
-                      
+                      <Link href={`/product/${product._id}`}>
+                        <h3 className="text-xs font-medium tracking-widest text-gray-900 uppercase hover:text-gray-500 transition-colors">
+                          {product.title}
+                        </h3>
+                      </Link>
+
                       <div className="flex items-center justify-center gap-2">
                         {isSaversActive ? (
                           <>
@@ -198,7 +244,7 @@ export default function PriorityShop() {
                       </div>
                     </div>
                   )}
-                </Link>
+                </div>
               );
             })}
           </div>

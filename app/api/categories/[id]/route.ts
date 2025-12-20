@@ -20,7 +20,7 @@ async function deleteImagekitFileIfPossible(img: any) {
 
 /* ---------- GET single category + Pre-calculated Products ---------- */
 export async function GET(
-  req: NextRequest, 
+  req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
@@ -40,27 +40,28 @@ export async function GET(
 
     // 2. Fetch products using the stored 'totalPrice' field
     const products = await Product.aggregate([
-        { $match: { category: new Types.ObjectId(id) } },
-        {
-            $sort: { 
-                priority: 1, 
-                createdAt: -1 
-            }
-        },
-        {
-            $project: {
-                title: 1, 
-                name: 1, 
-                description: 1, 
-                price: 1,      // Original Price (Base)
-                totalPrice: 1, // Final Price (Pre-calculated by Middleware)
-                images: 1, 
-                reviews: 1, 
-                badges: 1, 
-                sizes: 1, 
-                priority: 1
-            }
+      { $match: { category: new Types.ObjectId(id) } },
+      {
+        $sort: {
+          priority: 1,
+          createdAt: -1
         }
+      },
+      {
+        $project: {
+          title: 1,
+          name: 1,
+          description: 1,
+          price: 1,      // Original Price (Base)
+          totalPrice: 1, // Final Price (Pre-calculated by Middleware)
+          images: 1,
+          reviews: 1,
+          badges: 1,
+          sizes: 1,
+          cartLimit: 1,  // Individual product cart limit
+          priority: 1
+        }
+      }
     ]);
 
     return NextResponse.json({
@@ -68,7 +69,7 @@ export async function GET(
       category,
       products,
     }, { status: 200 });
-    
+
   } catch (err) {
     console.error("Category products error:", err);
     return NextResponse.json(
@@ -98,8 +99,8 @@ export async function PATCH(req: NextRequest, { params }: { params: any }) {
       const form = await req.formData();
       const title = form.get("title") as string | null;
       const description = form.get("description") as string | null;
-      const priorityStr = form.get("priority") as string | null; 
-      
+      const priorityStr = form.get("priority") as string | null;
+
       const files = form.getAll("images") as File[];
       const replaceIndexes = JSON.parse((form.get("replaceIndexes") as string) || "[]") as number[];
       const deleteIndexes = JSON.parse((form.get("deleteIndexes") as string) || "[]") as number[];
@@ -108,11 +109,11 @@ export async function PATCH(req: NextRequest, { params }: { params: any }) {
       if (description) updateData.description = description;
 
       if (priorityStr !== null) {
-          const priority = priorityStr === "" ? null : parseInt(priorityStr); 
-          if (priority !== null && (isNaN(priority) || priority < 1)) {
-              return NextResponse.json({ error: "Invalid priority value." }, { status: 400 });
-          }
-          updateData.priority = priority;
+        const priority = priorityStr === "" ? null : parseInt(priorityStr);
+        if (priority !== null && (isNaN(priority) || priority < 1)) {
+          return NextResponse.json({ error: "Invalid priority value." }, { status: 400 });
+        }
+        updateData.priority = priority;
       }
 
       let images = existing.images.slice();
@@ -148,7 +149,7 @@ export async function PATCH(req: NextRequest, { params }: { params: any }) {
       if (body.title !== undefined) updateData.title = body.title;
       if (body.description !== undefined) updateData.description = body.description;
       if (body.priority !== undefined) {
-          updateData.priority = body.priority === null ? null : parseInt(body.priority);
+        updateData.priority = body.priority === null ? null : parseInt(body.priority);
       }
     }
 

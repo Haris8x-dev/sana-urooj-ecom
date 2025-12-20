@@ -1,16 +1,24 @@
 "use client";
 
-import React, { useEffect, useState, useRef } from "react";
+import React, { useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { ChevronLeft, ChevronRight, ShoppingBag, Check } from "lucide-react";
+import { ShoppingBag } from "lucide-react";
 import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
+
+// Import the QuickViewBox component
+import QuickViewBox from "../../layouts/QuickViewBox";
 
 // --- INTERFACES ---
 interface ImageObject {
   url: string;
   fileId: string;
+}
+
+interface Size {
+  name: string;
+  quantity: number | string;
 }
 
 interface Product {
@@ -19,6 +27,8 @@ interface Product {
   images: ImageObject[];
   price: number;
   totalPrice: number;
+  cartLimit: number; // Matches lowercase 'c' in your productSchema
+  sizes: Size[];
   badges?: {
     saveRs: {
       active: boolean;
@@ -39,97 +49,56 @@ interface ApiResponse {
 }
 
 // --- PRODUCT CARD ---
-const ProductCard: React.FC<{ product: Product }> = ({ product }) => {
-  const [isAdded, setIsAdded] = useState(false);
+const ProductCard: React.FC<{ 
+  product: Product; 
+  onQuickView: (product: Product) => void 
+}> = ({ product, onQuickView }) => {
   const productUrl = `/product/${product._id}`;
   const imageUrl = product.images?.[0]?.url || "/images/placeholder.png";
   
   const isSaversActive = product.badges?.saveRs?.active && (product.badges?.saveRs?.amount || 0) > 0;
   const saversAmount = product.badges?.saveRs?.amount;
 
-  const handleAddToCart = (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-
-    const existingCart = JSON.parse(localStorage.getItem("cart") || "[]");
-
-    // STRICTOR LOGIC: Check if product ID already exists in cart
-    const alreadyInCart = existingCart.find((item: any) => item._id === product._id);
-
-    if (alreadyInCart) {
-      toast.info("Item is already in your cart!", {
-        position: "bottom-right",
-        autoClose: 2000,
-        hideProgressBar: true,
-        closeOnClick: true,
-        pauseOnHover: false,
-        theme: "dark",
-      });
-      return;
-    }
-
-    const cartItem = {
-      _id: product._id,
-      title: product.title,
-      price: product.totalPrice,
-      image: imageUrl,
-      quantity: 1,
-      selectedSize: "Standard" 
-    };
-
-    existingCart.push(cartItem);
-    localStorage.setItem("cart", JSON.stringify(existingCart));
-    
-    // Sync Navbar
-    window.dispatchEvent(new Event("cartUpdated"));
-
-    // Success Feedback
-    setIsAdded(true);
-    toast.success(`${product.title} added to cart!`, {
-      position: "bottom-right",
-      autoClose: 2000,
-      theme: "dark",
-    });
-
-    setTimeout(() => setIsAdded(false), 3000);
-  };
-
   return (
     <div className="group block text-center relative">
-      <Link href={productUrl}>
-        <div className="relative w-full overflow-hidden bg-gray-50 mb-4 h-80 md:h-[580px]">
-          {isSaversActive && (
-            <div className="absolute top-4 left-4 z-10 bg-red-600 text-white text-[10px] md:text-xs font-bold px-2 py-1 tracking-tighter uppercase">
-              SAVERS {saversAmount}
-            </div>
-          )}
+      <div className="relative w-full overflow-hidden bg-gray-50 mb-4 h-80 md:h-[580px]">
+        {isSaversActive && (
+          <div className="absolute top-4 left-4 z-10 bg-red-600 text-white text-[10px] md:text-xs font-bold px-2 py-1 tracking-tighter uppercase">
+            SAVERS {saversAmount}
+          </div>
+        )}
 
-          {/* ADD TO CART BUTTON (Desktop & Mobile) */}
-          <button
-            onClick={handleAddToCart}
-            className={`absolute bottom-4 right-4 z-20 p-3 rounded-full shadow-lg transition-all duration-300 transform 
-              ${isAdded ? 'bg-green-600 text-white' : 'bg-white text-gray-900 hover:bg-black hover:text-white'}
-              hidden md:flex items-center justify-center opacity-0 group-hover:opacity-100 group-hover:translate-y-0 translate-y-2
-            `}
-          >
-            {isAdded ? <Check size={20} /> : <ShoppingBag size={20} />}
-          </button>
+        {/* TRIGGER QUICK VIEW BOX */}
+        <button
+          onClick={(e) => {
+            e.preventDefault();
+            onQuickView(product);
+          }}
+          className="absolute bottom-4 right-4 z-20 p-3 rounded-full shadow-lg transition-all duration-300 transform bg-white text-gray-900 hover:bg-black hover:text-white hidden md:flex items-center justify-center opacity-0 group-hover:opacity-100 group-hover:translate-y-0 translate-y-2"
+        >
+          <ShoppingBag size={20} />
+        </button>
 
-          <button
-            onClick={handleAddToCart}
-            className="absolute bottom-3 right-3 z-20 p-2 bg-white/90 rounded-full shadow md:hidden flex items-center justify-center"
-          >
-             {isAdded ? <Check size={18} className="text-green-600" /> : <ShoppingBag size={18} />}
-          </button>
+        <button
+          onClick={(e) => {
+            e.preventDefault();
+            onQuickView(product);
+          }}
+          className="absolute bottom-3 right-3 z-20 p-2 bg-white/90 rounded-full shadow md:hidden flex items-center justify-center"
+        >
+          <ShoppingBag size={18} />
+        </button>
 
+        <Link href={productUrl}>
           <Image
             src={imageUrl}
             alt={product.title}
             fill
             className="object-cover transition-transform duration-500 group-hover:scale-[1.03]"
+            sizes="(max-width: 768px) 100vw, 33vw"
           />
-        </div>
-      </Link>
+        </Link>
+      </div>
 
       <h4 className="text-sm uppercase tracking-wide text-gray-800 group-hover:text-black">
         {product.title}
@@ -157,60 +126,11 @@ const ProductCard: React.FC<{ product: Product }> = ({ product }) => {
   );
 };
 
-// --- DESKTOP SCROLLER ---
-const DesktopScroller: React.FC<{ products: Product[] }> = ({ products }) => {
-  const scrollRef = useRef<HTMLDivElement>(null);
-  const [showLeft, setShowLeft] = useState(false);
-  const [showRight, setShowRight] = useState(false);
-
-  const checkScroll = () => {
-    const el = scrollRef.current;
-    if (!el) return;
-    setShowLeft(el.scrollLeft > 10);
-    setShowRight(el.scrollLeft + el.clientWidth < el.scrollWidth - 10);
-  };
-
-  useEffect(() => {
-    checkScroll();
-    const container = scrollRef.current;
-    if (container) {
-      container.addEventListener("scroll", checkScroll);
-      return () => container.removeEventListener("scroll", checkScroll);
-    }
-  }, []);
-
-  return (
-    <div className="relative hidden md:block">
-      {showLeft && (
-        <button onClick={() => scrollRef.current?.scrollBy({ left: -500, behavior: "smooth" })}
-          className="absolute left-0 top-1/2 -translate-y-1/2 z-30 bg-white/70 hover:bg-white p-2 rounded-full shadow"
-        >
-          <ChevronLeft size={35} />
-        </button>
-      )}
-      {showRight && (
-        <button onClick={() => scrollRef.current?.scrollBy({ left: 500, behavior: "smooth" })}
-          className="absolute right-0 top-1/2 -translate-y-1/2 z-30 bg-white/70 hover:bg-white p-2 rounded-full shadow"
-        >
-          <ChevronRight size={35} />
-        </button>
-      )}
-
-      <div ref={scrollRef} className="flex space-x-12 overflow-x-hidden pb-6">
-        {products.map((product) => (
-          <div key={product._id} className="min-w-[420px] shrink-0">
-            <ProductCard product={product} />
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-};
-
 // --- MAIN COMPONENT ---
 const HomeCategories: React.FC = () => {
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
+  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
 
   useEffect(() => {
     const fetchCategories = async () => {
@@ -218,6 +138,7 @@ const HomeCategories: React.FC = () => {
         const res = await fetch("/api/home-categories", { cache: "no-store" });
         const data: ApiResponse = await res.json();
         if (data?.categories) {
+          // Filter out categories with no products
           setCategories(data.categories.filter((cat) => cat.products?.length > 0));
         }
       } catch (err) {
@@ -229,6 +150,52 @@ const HomeCategories: React.FC = () => {
     fetchCategories();
   }, []);
 
+  /**
+   * CART ADDITION LOGIC
+   * Triggered by QuickViewBox. 
+   * Uses lowercase cartLimit to match productSchema and QuickViewBox.
+   */
+  const handleAddToCart = (size: string, quantity: number) => {
+    if (!selectedProduct) return;
+
+    const existingCart = JSON.parse(localStorage.getItem("cart") || "[]");
+    
+    // Check for duplicates
+    const alreadyInCart = existingCart.find(
+      (item: any) => item._id === selectedProduct._id && item.selectedSize === size
+    );
+
+    if (alreadyInCart) {
+      toast.info(`This item (${size}) is already in your cart!`, { theme: "dark" });
+      return;
+    }
+
+    // Prepare the cart item
+    const cartItem = {
+      _id: selectedProduct._id,
+      title: selectedProduct.title,
+      price: selectedProduct.totalPrice,
+      image: selectedProduct.images?.[0]?.url,
+      quantity: quantity,
+      selectedSize: size,
+      // Pass the correct limit from the DB (e.g., 1 or 10)
+      cartLimit: selectedProduct.cartLimit 
+    };
+
+    existingCart.push(cartItem);
+    localStorage.setItem("cart", JSON.stringify(existingCart));
+    
+    // Trigger update for navigation cart icons
+    window.dispatchEvent(new Event("cartUpdated"));
+
+    toast.success(`${selectedProduct.title} added to cart!`, {
+      theme: "dark",
+      position: "bottom-right"
+    });
+
+    setSelectedProduct(null); // Close modal
+  };
+
   if (loading) {
     return (
       <section className="w-full py-24 bg-[#fcfbf4] text-center">
@@ -239,25 +206,35 @@ const HomeCategories: React.FC = () => {
 
   return (
     <section className="w-full bg-[#fcfbf4]">
-      {/* GLOBAL TOAST PROVIDER */}
       <ToastContainer limit={3} />
       
+      {/* QUICK VIEW MODAL */}
+      {selectedProduct && (
+        <QuickViewBox 
+          product={selectedProduct} 
+          onClose={() => setSelectedProduct(null)} 
+          onAddToCart={handleAddToCart}
+        />
+      )}
+
       {categories.map((category, index) => (
         <div key={category._id}>
           <div className="max-w-7xl mx-auto pt-10 pb-12 text-center">
-            <h2 className="text-3xl md:text-4xl font-serif uppercase tracking-widest text-gray-900">{category.title}</h2>
+            <h2 className="text-3xl md:text-4xl font-serif uppercase tracking-widest text-gray-900">
+              {category.title}
+            </h2>
           </div>
 
           <div className="w-8xl mx-auto px-3 sm:px-4 md:px-12">
-            <div className="flex md:hidden space-x-6 overflow-x-auto scrollbar-none pb-6">
-              {category.products.map((product) => (
-                <div key={product._id} className="min-w-[240px]">
-                  <ProductCard product={product} />
-                </div>
-              ))}
+            <div className="relative">
+              <div className="flex space-x-6 md:space-x-12 overflow-x-auto scrollbar-none pb-6">
+                {category.products.map((product) => (
+                  <div key={product._id} className="min-w-[240px] md:min-w-[420px] shrink-0">
+                    <ProductCard product={product} onQuickView={setSelectedProduct} />
+                  </div>
+                ))}
+              </div>
             </div>
-
-            <DesktopScroller products={category.products} />
 
             <div className="flex mx-auto justify-center mt-6 mb-10">
               <Link
