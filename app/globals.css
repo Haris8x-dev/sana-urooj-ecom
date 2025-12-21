@@ -1,7 +1,24 @@
 @import url("https://fonts.googleapis.com/css2?family=Figtree:ital,wght@0,300..900;1,300..900&display=swap");
 @import "tailwindcss";
 
+:root {
+  /* Font Variable */
+  --primaryfont: 'Georgia', serif;
 
+  /* Color Variable (Tailwind amber-300) */
+  --primary-color: #fcd34d;
+  
+  /* Optional: Background for the luxury feel */
+  --bg-creme: #FDFBF7;
+}
+
+
+
+/* Luxury Headings */
+ h2, h3, .font-serif-italic {
+  font-family: var(--primaryfont);
+  font-style: italic;
+}
 
 HTML, body {
     overflow-x: hidden;

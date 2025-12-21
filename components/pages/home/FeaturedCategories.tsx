@@ -48,7 +48,7 @@ const FeaturedCategories: React.FC = () => {
   if (loading) {
     return (
       <section className="w-full py-20 bg-[#fcfbf4] flex justify-center items-center border-b border-gray-200">
-        <p className="text-gray-500 animate-pulse">Loading Collections...</p>
+        <p className="text-gray-500 animate-pulse font-primary italic">Loading Collections...</p>
       </section>
     );
   }
@@ -62,11 +62,23 @@ const FeaturedCategories: React.FC = () => {
   }
 
   return (
-    <section className="w-full bg-[#fcfbf4] pt-8 pb-12 border-b border-gray-300">
-      {/* SUPER TIGHT LEFT/RIGHT SPACING */}
+    <section className="w-full bg-[#fcfbf4] pt-16 pb-12 border-b border-gray-300">
+      {/* BRANDED HEADING SECTION */}
+      <div className="text-center mb-12 px-4 space-y-3">
+        <p className=" text-[10px] uppercase tracking-[0.5em] font-bold">
+          Curated Collections
+        </p>
+        <h2 className="text-4xl md:text-5xl font-primary talic text-gray-900 tracking-tighter">
+          Featured <span className="text-[var(--primary-color)]">Top</span> Categories
+        </h2>
+        <div className="w-12 h-[1px] bg-primary-color mx-auto my-4" />
+        <p className="text-gray-500 text-xs md:text-sm font-light max-w-lg mx-auto leading-relaxed">
+          Explore our most sought-after designs, from ancestral silhouettes to 
+          modern statement pieces, meticulously crafted for the Urooj Sana woman.
+        </p>
+      </div>
+
       <div className="px-3 sm:px-4 md:px-10 mx-auto">
-        {/* MOBILE: horizontal scroll
-            DESKTOP: 3-column grid */}
         <div
           className="
             md:grid md:grid-cols-3 
@@ -84,14 +96,13 @@ const FeaturedCategories: React.FC = () => {
               key={category._id}
               href={`/category/${category._id}`}
               className="
-    group relative 
-    snap-start 
-    overflow-hidden cursor-pointer
-    md:w-full 
-    h-[460px] md:h-[520px]
-  "
+                group relative 
+                snap-start 
+                overflow-hidden cursor-pointer
+                md:w-full 
+                h-[460px] md:h-[520px]
+              "
               style={{
-                // Mobile: card width around 80–85% for horizontal swipe
                 minWidth: "85%",
               }}
             >
@@ -107,10 +118,10 @@ const FeaturedCategories: React.FC = () => {
                 sizes="(max-width: 768px) 100vw, 33vw"
               />
 
-              <div className="absolute inset-0 bg-linear-to-t from-black/50 via-black/20 to-transparent" />
+              <div className="absolute inset-0 bg-linear-to-t from-black/60 via-black/20 to-transparent" />
 
               <div className="absolute bottom-6 left-0 right-0 text-center px-3">
-                <h3 className="text-white text-xl md:text-2xl tracking-wide font-light drop-shadow-lg">
+                <h3 className="text-white text-xl md:text-2xl tracking-widest font-primary italic drop-shadow-lg transition-colors group-hover:text-[var(--primary-color)]">
                   {category.title}
                 </h3>
               </div>
