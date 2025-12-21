@@ -58,10 +58,10 @@ export default function CheckoutPage() {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
-  const handlePlaceOrder = async () => {
+// Inside handlePlaceOrder function in checkoutPage.tsx
+const handlePlaceOrder = async () => {
     setIsSubmitting(true);
 
-    // Prepare data matching our specific Order Schema
     const orderData = {
       customer: formData,
       items: cartItems.map(item => ({
@@ -69,16 +69,15 @@ export default function CheckoutPage() {
         title: item.title,
         price: item.price,
         quantity: item.quantity,
-        itemTotal: item.price * item.quantity, // Calculated Final Price for this item
+        itemTotal: item.price * item.quantity,
         selectedSize: item.selectedSize,
         image: item.image
       })),
-      totalAmount: subtotal, // Grand Total
+      totalAmount: subtotal,
       paymentMethod: "Cash on Delivery",
     };
 
     try {
-      // 1. Save to MongoDB via API
       const response = await fetch("/api/orders", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -88,18 +87,13 @@ export default function CheckoutPage() {
       const result = await response.json();
 
       if (result.success) {
-        // 2. Real-time notification to Admin via Socket.io
-        socket.emit("newOrderPlacement", result.order);
-
-        // 3. Clear Local Storage
+        // --- SOCKET EMIT REMOVED ---
+        
         localStorage.removeItem("cart");
         window.dispatchEvent(new Event("cartUpdated"));
-
-        // 4. Show Success UI
         setOrderComplete(true);
         toast.success("Order confirmed successfully!", { theme: "dark" });
 
-        // 5. Redirect to Home after 5 seconds
         setTimeout(() => {
           router.push("/");
         }, 5000);
@@ -108,13 +102,11 @@ export default function CheckoutPage() {
       }
     } catch (error) {
       toast.error("An error occurred. Please try again later.");
-      console.error(error);
     } finally {
       setIsSubmitting(false);
       setIsConfirming(false);
     }
   };
-
   // --- THANK YOU UI (Visible for 5 Seconds) ---
   if (orderComplete) {
     return (
