@@ -4,7 +4,7 @@ import React, { useState, useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { LayoutGrid, Grid3X3, Grid2X2, ChevronDown, Square, ShoppingBag } from "lucide-react";
-import { ToastContainer, toast } from 'react-toastify';
+import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 
 // Import the QuickViewBox component
@@ -69,46 +69,11 @@ export default function MenShop() {
   }, []);
 
   /**
-   * FINAL CART ADDITION LOGIC
-   * Triggered by the QuickViewBox after size/quantity selection.
+   * Refactored: Cart logic and toast notifications are now 
+   * handled inside the QuickViewBox component.
    */
-  const handleFinalAddToCart = (size: string, quantity: number) => {
-    if (!selectedProduct) return;
-
-    const existingCart = JSON.parse(localStorage.getItem("cart") || "[]");
-
-    // Check for duplicates (same product + same size)
-    const alreadyInCart = existingCart.find(
-      (item: any) => item._id === selectedProduct._id && item.selectedSize === size
-    );
-
-    if (alreadyInCart) {
-      toast.info(`This item (${size}) is already in your cart!`, { theme: "dark" });
-      return;
-    }
-
-    const cartItem = {
-      _id: selectedProduct._id,
-      title: selectedProduct.title,
-      price: selectedProduct.totalPrice,
-      image: selectedProduct.images?.[0]?.url,
-      quantity: quantity,
-      selectedSize: size,
-      cartLimit: selectedProduct.cartLimit // Passes the individual DB limit
-    };
-
-    existingCart.push(cartItem);
-    localStorage.setItem("cart", JSON.stringify(existingCart));
-    
-    // Notify navigation/cart components
-    window.dispatchEvent(new Event("cartUpdated"));
-
-    toast.success(`${selectedProduct.title} added to cart!`, {
-      theme: "dark",
-      position: "bottom-right"
-    });
-
-    setSelectedProduct(null); // Close the modal
+  const handleFinalAddToCart = () => {
+    setSelectedProduct(null); // Simply close the modal
   };
 
   const handleLayoutChange = (cols: 3 | 4 | 6) => {

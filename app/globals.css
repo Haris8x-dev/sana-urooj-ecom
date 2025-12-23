@@ -15,7 +15,6 @@
 /* Luxury Headings */
  h2, h3, .font-serif-italic {
   font-family: var(--primaryfont);
-  font-style: italic;
 }
 
 HTML, body {

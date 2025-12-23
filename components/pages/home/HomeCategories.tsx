@@ -4,7 +4,7 @@ import React, { useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { ShoppingBag } from "lucide-react";
-import { ToastContainer, toast } from 'react-toastify';
+import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 
 // Import the QuickViewBox component
@@ -148,32 +148,8 @@ const HomeCategories: React.FC = () => {
     fetchCategories();
   }, []);
 
-  const handleAddToCart = (size: string, quantity: number) => {
-    if (!selectedProduct) return;
-    const existingCart = JSON.parse(localStorage.getItem("cart") || "[]");
-    const alreadyInCart = existingCart.find(
-      (item: any) => item._id === selectedProduct._id && item.selectedSize === size
-    );
-    if (alreadyInCart) {
-      toast.info(`This item (${size}) is already in your cart!`, { theme: "dark" });
-      return;
-    }
-    const cartItem = {
-      _id: selectedProduct._id,
-      title: selectedProduct.title,
-      price: selectedProduct.totalPrice,
-      image: selectedProduct.images?.[0]?.url,
-      quantity: quantity,
-      selectedSize: size,
-      cartLimit: selectedProduct.cartLimit 
-    };
-    existingCart.push(cartItem);
-    localStorage.setItem("cart", JSON.stringify(existingCart));
-    window.dispatchEvent(new Event("cartUpdated"));
-    toast.success(`${selectedProduct.title} added to cart!`, {
-      theme: "dark",
-      position: "bottom-right"
-    });
+  // REFACTORED: Redundant logic removed. State is now managed inside QuickViewBox.
+  const handleAddToCart = () => {
     setSelectedProduct(null);
   };
 
@@ -219,7 +195,7 @@ const HomeCategories: React.FC = () => {
       {categories.map((category, index) => (
         <div key={category._id}>
           <div className="max-w-7xl mx-auto pt-10 pb-12 text-center">
-            <h2 className="text-3xl md:text-4xl font-primary italic uppercase tracking-widest text-gray-900">
+            <h2 className="text-2xl md:text-4xl font-primary uppercase tracking-widest text-gray-900">
               {category.title}
             </h2>
           </div>
@@ -227,7 +203,6 @@ const HomeCategories: React.FC = () => {
           <div className="w-8xl mx-auto px-3 sm:px-4 md:px-12">
             <div className="relative">
               <div className="flex space-x-6 md:space-x-12 overflow-x-auto scrollbar-none pb-6">
-                {/* STRICTLY showing only first 8 products */}
                 {category.products.slice(0, 8).map((product) => (
                   <div key={product._id} className="min-w-[240px] md:min-w-[420px] shrink-0">
                     <ProductCard product={product} onQuickView={setSelectedProduct} />

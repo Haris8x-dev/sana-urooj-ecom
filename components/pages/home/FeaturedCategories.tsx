@@ -64,7 +64,7 @@ const FeaturedCategories: React.FC = () => {
   return (
     <section className="w-full bg-[#fcfbf4] pt-16 pb-12 border-b border-gray-300">
       {/* BRANDED HEADING SECTION */}
-      <div className="text-center mb-12 px-4 space-y-3">
+      <div className="text-center italic mb-12 px-4 space-y-3">
         <p className=" text-[10px] uppercase tracking-[0.5em] font-bold">
           Curated Collections
         </p>

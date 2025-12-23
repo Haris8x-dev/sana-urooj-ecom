@@ -4,7 +4,7 @@ import React, { useState, useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { LayoutGrid, Grid3X3, Grid2X2, ChevronDown, Square, ShoppingBag } from "lucide-react"; 
-import { ToastContainer, toast } from 'react-toastify';
+import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 
 // Import the QuickViewBox component
@@ -70,46 +70,11 @@ export default function WomenShop() {
   }, []);
 
   /**
-   * Final Cart Logic
-   * Triggered by QuickViewBox after user selects size/qty
+   * Refactored: Final Cart Logic is now handled 
+   * inside the QuickViewBox component.
    */
-  const handleFinalAddToCart = (size: string, quantity: number) => {
-    if (!selectedProduct) return;
-
-    const existingCart = JSON.parse(localStorage.getItem("cart") || "[]");
-    
-    // Check for duplicates
-    const alreadyInCart = existingCart.find(
-      (item: any) => item._id === selectedProduct._id && item.selectedSize === size
-    );
-
-    if (alreadyInCart) {
-      toast.info(`Item (${size}) is already in your cart!`, { theme: "dark" });
-      return;
-    }
-
-    const cartItem = {
-      _id: selectedProduct._id,
-      title: selectedProduct.title,
-      price: selectedProduct.totalPrice,
-      image: selectedProduct.images?.[0]?.url,
-      quantity: quantity,
-      selectedSize: size,
-      cartLimit: selectedProduct.cartLimit // Injecting the specific DB limit
-    };
-
-    existingCart.push(cartItem);
-    localStorage.setItem("cart", JSON.stringify(existingCart));
-    
-    // Sync UI icons
-    window.dispatchEvent(new Event("cartUpdated"));
-
-    toast.success(`${selectedProduct.title} added to cart!`, {
-      theme: "dark",
-      position: "bottom-right"
-    });
-
-    setSelectedProduct(null); // Close Modal
+  const handleFinalAddToCart = () => {
+    setSelectedProduct(null); // Close the Modal
   };
 
   const handleLayoutChange = (cols: 3 | 4 | 6) => {

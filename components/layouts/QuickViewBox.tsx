@@ -33,7 +33,7 @@ interface QuickViewBoxProps {
 export default function QuickViewBox({ product, onClose, onAddToCart }: QuickViewBoxProps) {
   const [selectedSize, setSelectedSize] = useState<string>("");
   const [quantity, setQuantity] = useState<number>(1);
-  const [activeImgIndex] = useState<number>(0);
+  const [activeImgIndex, setActiveImgIndex] = useState<number>(0); // Added setter
 
   const limit = product.cartLimit || 5;
   const isSaversActive = product.badges?.saveRs?.active && (product.badges?.saveRs?.amount || 0) > 0;
@@ -72,13 +72,8 @@ export default function QuickViewBox({ product, onClose, onAddToCart }: QuickVie
       return;
     }
 
-    // 2. Duplicate Check
-    const existingCart = JSON.parse(localStorage.getItem("cart") || "[]");
-    const isDuplicate = existingCart.some(
-      (item: any) => item._id === product._id && item.selectedSize === selectedSize
-    );
-
-    if (isDuplicate) {
+    // 2. Logic Check: Already in cart?
+    if (isAlreadyInCart) {
       toast.info(`${product.title} (${selectedSize}) is already in your cart`, {
         theme: "dark",
         position: "top-center",
@@ -98,10 +93,11 @@ export default function QuickViewBox({ product, onClose, onAddToCart }: QuickVie
     };
 
     // 4. Save & Sync
+    const existingCart = JSON.parse(localStorage.getItem("cart") || "[]");
     localStorage.setItem("cart", JSON.stringify([...existingCart, cartItem]));
     window.dispatchEvent(new Event("cartUpdated"));
     
-    // Only one toast triggered here
+    // 5. Single Success Toast
     toast.success("Added to cart successfully", {
       theme: "dark",
       position: "bottom-right",
@@ -124,20 +120,36 @@ export default function QuickViewBox({ product, onClose, onAddToCart }: QuickVie
         </button>
 
         {/* LEFT: Image Section */}
-        <div className="w-full md:w-1/2 p-6 bg-[#f7f4ef] flex items-center justify-center border-r border-gray-100">
-          <div className="relative w-full aspect-[3/4] overflow-hidden bg-gray-100 shadow-inner">
+        <div className="w-full md:w-1/2 p-6 bg-[#f7f4ef] flex flex-col items-center justify-center border-r border-gray-100">
+          <div className="relative w-full aspect-[3/4] overflow-hidden bg-gray-100 shadow-inner rounded-sm">
             {product.images?.[activeImgIndex] ? (
               <Image
                 src={product.images[activeImgIndex].url}
                 alt={product.title}
                 fill
-                className="object-cover object-top hover:scale-110 transition-transform duration-1000"
+                className="object-cover object-top hover:scale-105 transition-transform duration-700"
                 priority
               />
             ) : (
               <div className="w-full h-full flex items-center justify-center text-gray-400 uppercase text-[10px] tracking-widest">No Image Available</div>
             )}
           </div>
+
+          {/* Image Navigation Dots */}
+          {product.images.length > 1 && (
+            <div className="flex gap-2 mt-4">
+              {product.images.map((_, idx) => (
+                <button
+                  key={idx}
+                  onClick={() => setActiveImgIndex(idx)}
+                  className={`w-2 h-2 rounded-full transition-all duration-300 ${
+                    activeImgIndex === idx ? "bg-black w-6" : "bg-gray-300 hover:bg-gray-400"
+                  }`}
+                  aria-label={`View image ${idx + 1}`}
+                />
+              ))}
+            </div>
+          )}
         </div>
 
         {/* RIGHT: Product Details */}
@@ -202,10 +214,9 @@ export default function QuickViewBox({ product, onClose, onAddToCart }: QuickVie
           {/* Add to Cart Button */}
           <button
             onClick={handleAddToCartAttempt}
-            disabled={isAlreadyInCart}
             className={`w-full py-5 text-[11px] font-bold uppercase tracking-[0.4em] transition-all flex items-center justify-center gap-3 shadow-xl mb-8
               ${isAlreadyInCart 
-                ? "bg-gray-100 text-gray-400 cursor-not-allowed border border-gray-200" 
+                ? "bg-gray-50 text-gray-400 border border-gray-200" 
                 : "bg-[#1a1a1a] text-white hover:bg-black active:scale-[0.97]"}`}
           >
             {isAlreadyInCart ? (

@@ -72,7 +72,8 @@ export default function PriorityShop() {
   }, []);
 
   /**
-   * Callback from QuickViewBox - cart logic is handled in QuickViewBox itself
+   * Refactored: Cart logic is now handled inside QuickViewBox.
+   * This simply closes the modal.
    */
   const handleAddToCart = () => {
     setSelectedProduct(null);

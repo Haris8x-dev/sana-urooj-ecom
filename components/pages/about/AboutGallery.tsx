@@ -16,7 +16,7 @@ const images = [
   // RIGHT WING (Pivoting from Bottom Left)
   { src: "/images/about-brand.jpg", angle: "rotate-[10deg]", x: "translate-x-[150px]", y: "translate-y-2", origin: "origin-bottom-left", title: "The Stitch" },
   { src: "/images/about-brand.jpg", angle: "rotate-[25deg]", x: "translate-x-[320px]", y: "translate-y-10", origin: "origin-bottom-left", title: "The Fitting" },
-  { src: "/images/about-brand.jpg", angle: "rotate-[40deg]", x: "translate-x-[480px]", y: "translate-y-28", origin: "origin-bottom-left", title: "The Reveal" },
+  { src: "/images/about-brand.jpg", angle: "rotate-[42deg]", x: "translate-x-[480px]", y: "translate-y-28", origin: "origin-bottom-left", title: "The Reveal" },
 ];
 
 export default function AboutGallery() {
@@ -24,16 +24,16 @@ export default function AboutGallery() {
   const [activeIndex, setActiveIndex] = useState<number | null>(null);
 
   return (
-    <section className="py-24 bg-white overflow-hidden min-h-[80vh] flex flex-col justify-center">
-      <div className="container mx-auto px-6">
-        
+    <section className=" bg-white pb-14 overflow-hidden flex flex-col justify-center">
+      <div className="container h-80vh pt-18 mx-auto px-6">
+         
         {/* SECTION HEADER */}
         <div className="text-center max-w-3xl mx-auto mb-12 space-y-3"> 
           <span className="text-primary-color text-[10px] md:text-xs uppercase tracking-[0.8em] font-bold">
             Visual Narrative
           </span>
           <h2 className="text-5xl md:text-7xl font-primary italic text-slate-900 tracking-tighter leading-none">
-            The Art of <span className="text-primary-color">Process</span>
+            The <span className="text-[var(--primary-color)]">Art</span> of Process
           </h2>
           <div className="w-12 h-[1px] bg-primary-color mx-auto my-2" />
           <p className="text-slate-500 font-primary italic text-base md:text-lg leading-relaxed max-w-2xl mx-auto">
@@ -42,7 +42,7 @@ export default function AboutGallery() {
         </div>
 
         {/* SOLITAIRE ARC GALLERY */}
-        <div className="relative flex justify-center items-end h-[500px] md:h-[550px]">
+        <div className="relative flex justify-center items-start pt-16 h-[500px] md:h-[800px]">
           {images.map((item, index) => {
             const isHovered = hoveredIndex === index;
             const isActive = activeIndex === index;
@@ -70,7 +70,7 @@ export default function AboutGallery() {
                       e.stopPropagation();
                       setActiveIndex(null);
                     }}
-                    className="absolute -top-16 left-1/2 -translate-x-1/2 bg-slate-900 text-white p-2 rounded-full hover:bg-primary-color transition-colors shadow-xl z-[110] animate-in fade-in zoom-in duration-300"
+                    className="absolute -bottom-16 left-1/2 -translate-x-1/2 bg-slate-900 text-white p-2 rounded-full hover:bg-primary-color transition-colors shadow-xl z-[110] animate-in fade-in zoom-in duration-300"
                   >
                     <X size={20} />
                   </button>

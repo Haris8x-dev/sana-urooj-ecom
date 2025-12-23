@@ -3,8 +3,8 @@
 import React, { useState, useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { LayoutGrid, Grid3X3, Grid2X2, ChevronDown, Square, ShoppingBag, Check } from "lucide-react";
-import { ToastContainer, toast } from 'react-toastify';
+import { LayoutGrid, Grid3X3, Grid2X2, ChevronDown, Square, ShoppingBag } from "lucide-react";
+import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 
 // Import the QuickViewBox component
@@ -64,47 +64,11 @@ export default function Shop() {
   }, []);
 
   /**
-   * CART ADDITION LOGIC - Called from QuickViewBox
-   * Enforces individual product cartLimit
+   * Refactored: Cart logic is now handled inside QuickViewBox.
+   * This simply closes the modal.
    */
-  const handleFinalAddToCart = (size: string, quantity: number) => {
-    if (!selectedProduct) return;
-
-    const existingCart = JSON.parse(localStorage.getItem("cart") || "[]");
-
-    // Check for duplicates (same product + size)
-    const alreadyInCart = existingCart.find(
-      (item: any) => item._id === selectedProduct._id && item.selectedSize === size
-    );
-
-    if (alreadyInCart) {
-      toast.info(`This item (${size}) is already in your cart!`, { theme: "dark" });
-      return;
-    }
-
-    // Prepare the cart item
-    const cartItem = {
-      _id: selectedProduct._id,
-      title: selectedProduct.title,
-      price: selectedProduct.totalPrice,
-      image: selectedProduct.images?.[0]?.url,
-      quantity: quantity,
-      selectedSize: size,
-      cartLimit: selectedProduct.cartLimit
-    };
-
-    existingCart.push(cartItem);
-    localStorage.setItem("cart", JSON.stringify(existingCart));
-
-    // Trigger update for navigation cart icons
-    window.dispatchEvent(new Event("cartUpdated"));
-
-    toast.success(`${selectedProduct.title} added to cart!`, {
-      theme: "dark",
-      position: "bottom-right"
-    });
-
-    setSelectedProduct(null); // Close modal
+  const handleFinalAddToCart = () => {
+    setSelectedProduct(null);
   };
 
   const handleLayoutChange = (cols: 3 | 4 | 6) => {
