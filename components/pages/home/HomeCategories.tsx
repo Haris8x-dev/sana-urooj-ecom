@@ -27,7 +27,7 @@ interface Product {
   images: ImageObject[];
   price: number;
   totalPrice: number;
-  cartLimit: number; // Matches lowercase 'c' in your productSchema
+  cartLimit: number; 
   sizes: Size[];
   badges?: {
     saveRs: {
@@ -68,7 +68,6 @@ const ProductCard: React.FC<{
           </div>
         )}
 
-        {/* TRIGGER QUICK VIEW BOX */}
         <button
           onClick={(e) => {
             e.preventDefault();
@@ -138,7 +137,6 @@ const HomeCategories: React.FC = () => {
         const res = await fetch("/api/home-categories", { cache: "no-store" });
         const data: ApiResponse = await res.json();
         if (data?.categories) {
-          // Filter out categories with no products
           setCategories(data.categories.filter((cat) => cat.products?.length > 0));
         }
       } catch (err) {
@@ -150,27 +148,16 @@ const HomeCategories: React.FC = () => {
     fetchCategories();
   }, []);
 
-  /**
-   * CART ADDITION LOGIC
-   * Triggered by QuickViewBox. 
-   * Uses lowercase cartLimit to match productSchema and QuickViewBox.
-   */
   const handleAddToCart = (size: string, quantity: number) => {
     if (!selectedProduct) return;
-
     const existingCart = JSON.parse(localStorage.getItem("cart") || "[]");
-    
-    // Check for duplicates
     const alreadyInCart = existingCart.find(
       (item: any) => item._id === selectedProduct._id && item.selectedSize === size
     );
-
     if (alreadyInCart) {
       toast.info(`This item (${size}) is already in your cart!`, { theme: "dark" });
       return;
     }
-
-    // Prepare the cart item
     const cartItem = {
       _id: selectedProduct._id,
       title: selectedProduct.title,
@@ -178,28 +165,22 @@ const HomeCategories: React.FC = () => {
       image: selectedProduct.images?.[0]?.url,
       quantity: quantity,
       selectedSize: size,
-      // Pass the correct limit from the DB (e.g., 1 or 10)
       cartLimit: selectedProduct.cartLimit 
     };
-
     existingCart.push(cartItem);
     localStorage.setItem("cart", JSON.stringify(existingCart));
-    
-    // Trigger update for navigation cart icons
     window.dispatchEvent(new Event("cartUpdated"));
-
     toast.success(`${selectedProduct.title} added to cart!`, {
       theme: "dark",
       position: "bottom-right"
     });
-
-    setSelectedProduct(null); // Close modal
+    setSelectedProduct(null);
   };
 
   if (loading) {
     return (
       <section className="w-full py-24 bg-[#fcfbf4] text-center">
-        <p className="text-gray-500 animate-pulse text-xs uppercase tracking-widest">Loading Collections...</p>
+        <p className="text-gray-500 animate-pulse text-xs uppercase tracking-widest font-primary">Loading Collections...</p>
       </section>
     );
   }
@@ -208,7 +189,25 @@ const HomeCategories: React.FC = () => {
     <section className="w-full bg-[#fcfbf4]">
       <ToastContainer limit={3} />
       
-      {/* QUICK VIEW MODAL */}
+      {/* UNIQUE BRAND HEADER */}
+      <div className="text-center pt-20 pb-12 px-6 max-w-4xl mx-auto space-y-4">
+        <span className="text-[10px] uppercase tracking-[0.6em] font-bold block mb-2">
+          The Artisanal Series
+        </span>
+        <h2 className="text-4xl md:text-6xl font-primary italic text-gray-900 tracking-tighter leading-tight">
+          Urooj <span className="text-[var(--primary-color)]">Sana</span> Masterpieces
+        </h2>
+        <div className="flex justify-center items-center gap-4 py-2">
+           <div className="w-8 h-[1px] bg-primary-color/30" />
+           <div className="w-2 h-2 rotate-45 border border-primary-color" />
+           <div className="w-8 h-[1px] bg-primary-color/30" />
+        </div>
+        <p className="text-gray-500 text-xs md:text-sm font-light leading-relaxed max-w-2xl mx-auto italic font-primary">
+          Explore our most prestigious categories, where every stitch tells a story of 
+          heritage and every silhouette defines modern elegance.
+        </p>
+      </div>
+
       {selectedProduct && (
         <QuickViewBox 
           product={selectedProduct} 
@@ -220,7 +219,7 @@ const HomeCategories: React.FC = () => {
       {categories.map((category, index) => (
         <div key={category._id}>
           <div className="max-w-7xl mx-auto pt-10 pb-12 text-center">
-            <h2 className="text-3xl md:text-4xl font-serif uppercase tracking-widest text-gray-900">
+            <h2 className="text-3xl md:text-4xl font-primary italic uppercase tracking-widest text-gray-900">
               {category.title}
             </h2>
           </div>
@@ -228,7 +227,8 @@ const HomeCategories: React.FC = () => {
           <div className="w-8xl mx-auto px-3 sm:px-4 md:px-12">
             <div className="relative">
               <div className="flex space-x-6 md:space-x-12 overflow-x-auto scrollbar-none pb-6">
-                {category.products.map((product) => (
+                {/* STRICTLY showing only first 8 products */}
+                {category.products.slice(0, 8).map((product) => (
                   <div key={product._id} className="min-w-[240px] md:min-w-[420px] shrink-0">
                     <ProductCard product={product} onQuickView={setSelectedProduct} />
                   </div>

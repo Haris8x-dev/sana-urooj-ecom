@@ -81,7 +81,7 @@ export default function HeroVideo() {
               
               <div className="space-y-6">
                 <div className="flex items-center gap-4">
-                  <div className="w-12 h-[1px] bg-primary-color/50" />
+                  <div className="w-12 h-[1px] bg-[var(--primary-color)]" />
                   <p className="text-[var(--primary-color)] text-[11px] uppercase tracking-[0.5em] font-bold">
                     Est. 2024 • Private Collection
                   </p>

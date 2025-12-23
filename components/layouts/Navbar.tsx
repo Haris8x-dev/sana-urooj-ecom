@@ -139,7 +139,7 @@ const Navbar: React.FC = () => {
       </div>
 
       {/* 2. DESKTOP NAVIGATION */}
-      <div className="hidden md:flex justify-center gap-10 pb-4 navItems uppercase text-[11px] font-mono relative z-[120] bg-white">
+      <div className="hidden md:flex justify-center gap-10 pb-4 navItems uppercase text-md font-mono relative z-[120] bg-white">
         {navigationLinks.map((link) => (
           <Link key={link.href} href={link.href} className="relative text-gray-600 hover:text-black font-medium group transition-colors">
             {link.label}
