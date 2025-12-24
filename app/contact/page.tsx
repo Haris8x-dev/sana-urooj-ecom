@@ -1,12 +1,16 @@
+import ContactFooter from '@/components/pages/contact/ContactFooter'
+import ContactForm from '@/components/pages/contact/ContactForm'
+import ContactHero from '@/components/pages/contact/ContactHero'
 import React from 'react'
-import Contact from '@/components/pages/contact/ContactPage'
 
 const ContactPage = () => {
   return (
     <div>
-        <Contact/>
+        <ContactHero/>
+        <ContactForm/>
+        <ContactFooter/>
     </div>
   )
 }
 
-export default ContactPage
+export default ContactPage;

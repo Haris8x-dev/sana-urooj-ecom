@@ -1,7 +1,6 @@
 import AboutHero from "@/components/pages/about/AboutHero";
-import AboutEditorial from "@/components/pages/about/AboutEditorial";
-import AboutAction from "@/components/pages/about/AboutAction";
 import AboutGallery from "@/components/pages/about/AboutGallery";
+import AboutPhilosophy from "@/components/pages/about/AboutPhilosphy";
 
 const About = () => {
   return (
@@ -9,8 +8,7 @@ const About = () => {
        <main className="bg-white">
       <AboutHero />
       <AboutGallery/>
-      <AboutEditorial />
-      <AboutAction />
+      <AboutPhilosophy/>
     </main>
     </div>
   )

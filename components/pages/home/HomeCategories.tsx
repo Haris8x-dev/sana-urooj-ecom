@@ -1,9 +1,9 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { ShoppingBag } from "lucide-react";
+import { ShoppingBag, ChevronLeft, ChevronRight } from "lucide-react";
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 
@@ -125,6 +125,57 @@ const ProductCard: React.FC<{
   );
 };
 
+// --- SCROLLER COMPONENT ---
+// Handles the 8-product limit and the arrow navigation
+const ProductScroller: React.FC<{ 
+  products: Product[]; 
+  onQuickView: (product: Product) => void 
+}> = ({ products, onQuickView }) => {
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  const scroll = (direction: "left" | "right") => {
+    if (scrollRef.current) {
+      const { scrollLeft, clientWidth } = scrollRef.current;
+      const scrollTo = direction === "left" 
+        ? scrollLeft - clientWidth / 1.5 
+        : scrollLeft + clientWidth / 1.5;
+      
+      scrollRef.current.scrollTo({ left: scrollTo, behavior: "smooth" });
+    }
+  };
+
+  return (
+    <div className="relative group/scroller">
+      {/* Navigation Arrows */}
+      <button 
+        onClick={() => scroll("left")}
+        className="absolute cursor-pointer left-0 top-[40%] -translate-y-1/2 z-30 p-2 bg-white/80 hover:bg-black hover:text-white transition-all shadow-md rounded-full -ml-4 opacity-0 group-hover/scroller:opacity-100 hidden md:flex"
+      >
+        <ChevronLeft size={40} />
+      </button>
+
+      <button 
+        onClick={() => scroll("right")}
+        className="absolute cursor-pointer right-0 top-[40%] -translate-y-1/2 z-30 p-2 bg-white/80 hover:bg-black hover:text-white transition-all shadow-md rounded-full -mr-4 opacity-0 group-hover/scroller:opacity-100 hidden md:flex"
+      >
+        <ChevronRight size={40} />
+      </button>
+
+      {/* Product List */}
+      <div 
+        ref={scrollRef}
+        className="flex space-x-6 md:space-x-12 overflow-x-auto scrollbar-none pb-6 scroll-smooth"
+      >
+        {products.slice(0, 8).map((product) => (
+          <div key={product._id} className="min-w-[240px] md:min-w-[420px] shrink-0">
+            <ProductCard product={product} onQuickView={onQuickView} />
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+};
+
 // --- MAIN COMPONENT ---
 const HomeCategories: React.FC = () => {
   const [categories, setCategories] = useState<Category[]>([]);
@@ -148,7 +199,6 @@ const HomeCategories: React.FC = () => {
     fetchCategories();
   }, []);
 
-  // REFACTORED: Redundant logic removed. State is now managed inside QuickViewBox.
   const handleAddToCart = () => {
     setSelectedProduct(null);
   };
@@ -201,15 +251,11 @@ const HomeCategories: React.FC = () => {
           </div>
 
           <div className="w-8xl mx-auto px-3 sm:px-4 md:px-12">
-            <div className="relative">
-              <div className="flex space-x-6 md:space-x-12 overflow-x-auto scrollbar-none pb-6">
-                {category.products.slice(0, 8).map((product) => (
-                  <div key={product._id} className="min-w-[240px] md:min-w-[420px] shrink-0">
-                    <ProductCard product={product} onQuickView={setSelectedProduct} />
-                  </div>
-                ))}
-              </div>
-            </div>
+            {/* Using the new Scroller with Arrows and 8-limit */}
+            <ProductScroller 
+              products={category.products} 
+              onQuickView={setSelectedProduct} 
+            />
 
             <div className="flex mx-auto justify-center mt-6 mb-10">
               <Link

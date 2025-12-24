@@ -1,41 +1,29 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { LayoutGrid, Grid3X3, Grid2X2, ChevronDown, Square, ShoppingBag } from "lucide-react";
+import { LayoutGrid, Grid3X3, Grid2X2, ChevronDown, Square, ShoppingBag, X, RotateCcw } from "lucide-react";
 import { ToastContainer } from 'react-toastify';
+import { motion, AnimatePresence } from "framer-motion";
 import 'react-toastify/dist/ReactToastify.css';
 
-// Import the QuickViewBox component
 import QuickViewBox from "@/components/layouts/QuickViewBox";
 
-interface ImageObject {
-  url: string;
-  fileId: string;
-}
-
-interface Size {
-  name: string;
-  quantity: number | string;
-}
+interface ImageObject { url: string; fileId: string; }
+interface Size { name: string; quantity: number | string; }
 
 interface Product {
   _id: string;
   title: string;
-  price: number;      // Original Price
-  totalPrice: number; // Final Price
+  price: number;
+  totalPrice: number;
   images: ImageObject[];
   isSoldOut: boolean;
   gender: string;
-  cartLimit: number;   // Ensure this is in the interface
-  sizes: Size[];       // Ensure sizes are available for the modal
-  badges?: {
-    saveRs: {
-      active: boolean;
-      amount: number;
-    };
-  };
+  cartLimit: number;
+  sizes: Size[];
+  badges?: { saveRs: { active: boolean; amount: number; }; };
 }
 
 export default function MenShop() {
@@ -43,7 +31,10 @@ export default function MenShop() {
   const [loading, setLoading] = useState(true);
   const [gridCols, setGridCols] = useState<3 | 4 | 6>(4);
   
-  // Quick View State
+  const [sortBy, setSortBy] = useState<string>("default");
+  const [maxPrice, setMaxPrice] = useState<number>(9999999); 
+  const [showFilters, setShowFilters] = useState(false);
+  const [showSort, setShowSort] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
 
   useEffect(() => {
@@ -51,12 +42,9 @@ export default function MenShop() {
       try {
         const res = await fetch("/api/products/get");
         const data = await res.json();
-
         if (data.products) {
-          const maleProducts = data.products.filter(
-            (product: Product) => product.gender?.toLowerCase() === "male"
-          );
-          setProducts(maleProducts);
+          const menItems = data.products.filter((p: Product) => p.gender?.toLowerCase() === "male");
+          setProducts(menItems);
         }
       } catch (error) {
         console.error("Failed to fetch products:", error);
@@ -64,183 +52,130 @@ export default function MenShop() {
         setLoading(false);
       }
     };
-
     fetchProducts();
   }, []);
 
-  /**
-   * Refactored: Cart logic and toast notifications are now 
-   * handled inside the QuickViewBox component.
-   */
-  const handleFinalAddToCart = () => {
-    setSelectedProduct(null); // Simply close the modal
-  };
+  const filteredProducts = useMemo(() => {
+    let result = [...products];
+    if (maxPrice !== 9999999) {
+      result = result.filter(p => p.totalPrice >= 0 && p.totalPrice <= maxPrice);
+    }
+    if (sortBy === "az") result.sort((a, b) => a.title.localeCompare(b.title));
+    else if (sortBy === "za") result.sort((a, b) => b.title.localeCompare(a.title));
+    else if (sortBy === "lowHigh") result.sort((a, b) => a.totalPrice - b.totalPrice);
+    else if (sortBy === "highLow") result.sort((a, b) => b.totalPrice - a.totalPrice);
+    return result;
+  }, [products, maxPrice, sortBy]);
 
-  const handleLayoutChange = (cols: 3 | 4 | 6) => {
-    setGridCols(cols);
+  const handleReset = () => {
+    setMaxPrice(9999999);
+    setSortBy("default");
+    setShowFilters(false);
+    setShowSort(false);
   };
 
   return (
-    <div className="min-h-screen bg-[#FDFBF7] text-gray-80 py-20 lg:py-30">
+    <div className="min-h-screen bg-[#FDFBF7] text-gray-800 py-20 lg:py-30">
       <ToastContainer limit={3} />
-
-      {/* QUICK VIEW MODAL */}
       {selectedProduct && (
         <QuickViewBox
           product={selectedProduct}
           onClose={() => setSelectedProduct(null)}
-          onAddToCart={handleFinalAddToCart}
+          onAddToCart={() => setSelectedProduct(null)}
         />
       )}
 
-      <div className="py-2 md:py-8 text-center">
-        <h1 className="text-md tracking-widest text-gray-900 navItems uppercase font-mono py-4">
-          Men's Collection
-        </h1>
+      {/* Page Title */}
+      <div className="max-w-4xl mx-auto px-6 py-12 text-center">
+        <motion.h1 
+          initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }}
+          className="text-3xl md:text-5xl tracking-tight font-serif mb-4"
+        >
+          <span className="text-[var(--primary-color)] italic">Men&apos;s </span> Collection
+        </motion.h1>
       </div>
 
-      {/* Control Bar */}
-      <div className="w-full h-[45px] border-y border-gray-300 flex items-center justify-between bg-transparent mt-4">
-        <div className="h-full flex items-center px-4 border-r border-gray-300 gap-3">
-          <div className="hidden md:flex gap-3">
-            <button onClick={() => handleLayoutChange(3)} className={`transition-colors ${gridCols === 3 ? "text-black" : "text-gray-400 hover:text-gray-600"}`}>
-               <div className="flex gap-0.5">
-                 <div className="w-3 h-4 bg-current"></div>
-                 <div className="w-3 h-4 bg-current"></div>
-                 <div className="w-3 h-4 bg-current"></div>
-               </div>
-            </button>
-            <button onClick={() => handleLayoutChange(4)} className={`transition-colors ${gridCols === 4 ? "text-black" : "text-gray-400 hover:text-gray-600"}`}>
-              <LayoutGrid size={20} strokeWidth={1.5} />
-            </button>
-            <button onClick={() => handleLayoutChange(6)} className={`transition-colors ${gridCols === 6 ? "text-black" : "text-gray-400 hover:text-gray-600"}`}>
-              <Grid3X3 size={20} strokeWidth={1.5} />
-            </button>
+      {/* Sticky Bar */}
+      <div className="sticky top-[64px] z-50 w-full h-[55px] border-y border-gray-200 flex items-center justify-between bg-[#FDFBF7]/90 backdrop-blur-md px-4">
+        <div className="flex items-center gap-4">
+          <div className="hidden md:flex gap-4 border-r border-gray-200 pr-4">
+            {[3, 4, 6].map((cols) => (
+              <button key={cols} onClick={() => setGridCols(cols as any)} className={`transition-all ${gridCols === cols ? "text-black scale-110" : "text-gray-300 hover:text-gray-500"}`}>
+                {cols === 4 ? <LayoutGrid size={18} /> : cols === 6 ? <Grid3X3 size={18} /> : <Square size={18} />}
+              </button>
+            ))}
           </div>
-
-          <div className="flex md:hidden gap-3">
-            <button onClick={() => handleLayoutChange(3)} className={`transition-colors ${gridCols === 3 ? "text-black" : "text-gray-400 hover:text-gray-600"}`}>
-              <Square size={20} strokeWidth={1.5} fill={gridCols === 3 ? "currentColor" : "none"} />
-            </button>
-            <button onClick={() => handleLayoutChange(4)} className={`transition-colors ${gridCols === 4 ? "text-black" : "text-gray-400 hover:text-gray-600"}`}>
-              <Grid2X2 size={20} strokeWidth={1.5} />
-            </button>
+          <div className="flex md:hidden gap-4">
+             <button onClick={() => setGridCols(3)} className={gridCols === 3 ? "text-black" : "text-gray-300"}><Square size={18} fill={gridCols === 3 ? "currentColor" : "none"}/></button>
+             <button onClick={() => setGridCols(4)} className={gridCols === 4 ? "text-black" : "text-gray-300"}><Grid2X2 size={18} /></button>
           </div>
         </div>
 
-        <div className="h-full flex items-center px-0 gap-0">
-          <div className="flex items-center gap-1 cursor-pointer group h-full px-4 border-r border-gray-300">
-            <span className="text-xs font-medium tracking-wide text-gray-600 group-hover:text-black">SORT BY</span>
-            <ChevronDown size={14} className="text-gray-400 group-hover:text-black" />
-          </div>
-          <button className="text-xs font-medium tracking-wide text-gray-600 hover:text-black uppercase h-full flex items-center px-4 border-l border-gray-300">
-            Filter
+        <div className="flex items-center h-full">
+          <button onClick={() => {setShowSort(!showSort); setShowFilters(false);}} className="flex items-center gap-2 px-4 h-full border-l border-gray-200">
+            <span className="text-[10px] font-bold tracking-widest uppercase">Sort</span>
+            <ChevronDown size={12} className={`transition-transform ${showSort ? "rotate-180" : ""}`} />
           </button>
+          <button onClick={() => {setShowFilters(!showFilters); setShowSort(false);}} className="flex items-center gap-2 px-4 h-full border-l border-gray-200 uppercase text-[10px] font-bold tracking-widest">Filter</button>
+          <button onClick={handleReset} className="px-4 border-l border-gray-200 text-gray-400 hover:text-red-500 transition-colors"><RotateCcw size={14} /></button>
         </div>
+
+        {/* Sort Menu */}
+        <AnimatePresence>
+          {showSort && (
+            <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="absolute top-[56px] right-24 w-48 bg-white shadow-2xl border border-gray-100 p-2 z-[60]">
+              {[ {l: "A - Z", v: "az"}, {l: "Z - A", v: "za"}, {l: "Low to High", v: "lowHigh"}, {l: "High to Low", v: "highLow"} ].map((opt) => (
+                <button key={opt.v} onClick={() => { setSortBy(opt.v); setShowSort(false); }} className="w-full text-left px-4 py-3 text-[9px] uppercase tracking-widest hover:bg-gray-50">{opt.l}</button>
+              ))}
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
 
-      {/* Product Grid */}
-      <div className="w-full py-8 px-6">
+      {/* Grid */}
+      <div className="w-full py-12 px-6">
         {loading ? (
-          <div className="flex justify-center items-center h-64">
-            <p className="text-gray-400 tracking-widest text-sm animate-pulse">LOADING MEN'S COLLECTION...</p>
-          </div>
-        ) : products.length === 0 ? (
-          <div className="flex justify-center items-center h-64">
-            <p className="text-gray-400 tracking-widest text-sm">NO PRODUCTS FOUND.</p>
-          </div>
+           <div className="flex justify-center py-20"><div className="w-8 h-8 border-2 border-[var(--primary-color)] border-t-transparent rounded-full animate-spin"></div></div>
         ) : (
-          <div
-            className={`grid gap-x-4 gap-y-10 transition-all duration-300 ease-in-out
-              ${gridCols === 3 ? "grid-cols-1 md:grid-cols-2 lg:grid-cols-3" : ""}
-              ${gridCols === 4 ? "grid-cols-2 md:grid-cols-3 lg:grid-cols-4" : ""}
-              ${gridCols === 6 ? "grid-cols-3 md:grid-cols-4 lg:grid-cols-6" : ""}
-            `}
-          >
-            {products.map((product) => {
-              const isSaversActive = product.badges?.saveRs?.active && (product.badges?.saveRs?.amount || 0) > 0;
-              const saversAmount = product.badges?.saveRs?.amount;
-
-              return (
-                <div key={product._id} className="group relative flex flex-col">
-                  {/* Image Container */}
-                  <div className="relative w-full overflow-hidden bg-gray-100 aspect-3/4">
+          <motion.div layout className={`grid gap-x-6 gap-y-16 ${gridCols === 3 ? "grid-cols-1 md:grid-cols-2 lg:grid-cols-3" : gridCols === 4 ? "grid-cols-2 md:grid-cols-3 lg:grid-cols-4" : "grid-cols-3 md:grid-cols-4 lg:grid-cols-6"}`}>
+            <AnimatePresence mode="popLayout">
+              {filteredProducts.map((product) => (
+                <motion.div layout key={product._id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="group">
+                  <div className="relative aspect-[3/4] bg-[#F5F5F5] overflow-hidden">
                     <Link href={`/product/${product._id}`}>
-                      {isSaversActive && (
-                        <div className="absolute top-3 left-3 z-20 bg-red-600 text-white text-[9px] md:text-[11px] font-bold px-2 py-1 tracking-tighter uppercase shadow-sm">
-                          SAVERS {saversAmount}
-                        </div>
+                      {product.badges?.saveRs?.active && (
+                         <div className="absolute top-4 left-4 z-20 bg-red-600 text-white text-[9px] font-bold px-2 py-1 tracking-widest uppercase">SAVE RS {product.badges.saveRs.amount}</div>
                       )}
-
-                      {product.isSoldOut && (
-                        <div className="absolute bottom-2 left-2 z-10 bg-white/90 px-2 py-1">
-                          <span className="text-[10px] font-bold tracking-widest text-gray-500 uppercase">
-                            Sold Out
-                          </span>
-                        </div>
-                      )}
-
-                      {product.images?.[0] ? (
-                        <Image
-                          src={product.images[0].url}
-                          alt={product.title}
-                          fill
-                          className="object-cover object-top transition-transform duration-700 ease-out group-hover:scale-105"
-                          sizes="(max-width: 768px) 50vw, (max-width: 1200px) 33vw, 25vw"
-                        />
-                      ) : (
-                        <div className="flex items-center justify-center w-full h-full text-gray-300 text-xs">
-                          No Image
-                        </div>
-                      )}
+                      <Image src={product.images[0]?.url} alt={product.title} fill className="object-cover object-top transition-transform duration-1000 group-hover:scale-110" />
                     </Link>
-
-                    {/* QUICK VIEW TRIGGER BUTTON */}
                     {!product.isSoldOut && (
-                      <button
-                        onClick={(e) => {
-                          e.preventDefault();
-                          e.stopPropagation();
-                          setSelectedProduct(product);
-                        }}
-                        className="absolute bottom-3 right-3 z-30 p-2.5 rounded-full shadow-lg transition-all duration-300 transform bg-white text-gray-900 hover:bg-black hover:text-white md:translate-y-4 md:opacity-0 md:group-hover:translate-y-0 md:group-hover:opacity-100 flex items-center justify-center"
+                      <button 
+                        onClick={() => setSelectedProduct(product)} 
+                        className="absolute bottom-4 right-4 z-30 p-4 rounded-full shadow-xl bg-white text-gray-900 hover:bg-black hover:text-white transition-all duration-300 md:translate-y-12 md:opacity-0 md:group-hover:translate-y-0 md:group-hover:opacity-100"
                       >
                         <ShoppingBag size={18} />
                       </button>
                     )}
                   </div>
-
-                  {/* Product Details */}
                   {gridCols !== 6 && (
-                    <div className="mt-4 text-center space-y-1">
-                      <Link href={`/product/${product._id}`}>
-                        <h3 className="text-xs font-medium tracking-widest text-gray-900 uppercase hover:text-gray-600 transition-colors">
-                          {product.title}
-                        </h3>
-                      </Link>
-
-                      <div className="flex items-center justify-center gap-2">
-                        {isSaversActive ? (
+                    <div className="mt-6 text-center">
+                      <h3 className="text-[11px] font-semibold tracking-[0.2em] text-gray-900 uppercase">{product.title}</h3>
+                      <div className="mt-2 flex items-center justify-center gap-2">
+                        {product.badges?.saveRs?.active ? (
                           <>
-                            <span className="text-[11px] text-gray-400 line-through">
-                              Rs {product.price.toLocaleString()}
-                            </span>
-                            <span className="text-[11px] text-red-600 font-bold">
-                              Rs {product.totalPrice.toLocaleString()}
-                            </span>
+                            <span className="text-[11px] text-gray-300 line-through font-mono">RS {product.price.toLocaleString()}</span>
+                            <span className="text-[11px] text-red-600 font-bold font-mono text-[var(--primary-color)]">RS {product.totalPrice.toLocaleString()}</span>
                           </>
                         ) : (
-                          <p className="text-xs text-gray-500 font-light">
-                            Rs {product.totalPrice ? product.totalPrice.toLocaleString() : "N/A"}
-                          </p>
+                          <span className="text-[11px] text-gray-500 font-mono text-[var(--primary-color)]">RS {product.totalPrice.toLocaleString()}</span>
                         )}
                       </div>
                     </div>
                   )}
-                </div>
-              );
-            })}
-          </div>
+                </motion.div>
+              ))}
+            </AnimatePresence>
+          </motion.div>
         )}
       </div>
     </div>
