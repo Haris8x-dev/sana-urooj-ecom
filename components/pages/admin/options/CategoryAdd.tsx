@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useRef, useCallback } from "react";
-import { Plus, X, Bold, Italic, List, ListOrdered, Loader2, Image as ImageIcon } from "lucide-react";
+import { Plus, X, Bold, Italic, List, ListOrdered, Loader2, Image as ImageIcon, Star } from "lucide-react";
 
 // --- Reusable Components ---
 interface InputGroupProps {
@@ -83,7 +83,15 @@ export default function CategoryAdd() {
 
   return (
     <div className="w-full px-4 lg:px-6 py-3">
-        <h2 className="text-2xl font-bold text-gray-800 mb-6 px-2">Add New Category</h2>
+        <div className="mb-10">
+        <h1 className="text-[12px] tracking-[0.3em] font-bold uppercase text-gray-500 flex items-center gap-2">
+          <Star size={14} className="fill-amber-400 text-amber-400" />
+          Create a New Category
+        </h1>
+        <p className="text-[10px] text-gray-400 uppercase mt-2 tracking-widest">
+          Create Categories to keep your St
+        </p>
+      </div>
       
       <form onSubmit={handleSubmit} className="flex flex-col lg:flex-row gap-6">
         

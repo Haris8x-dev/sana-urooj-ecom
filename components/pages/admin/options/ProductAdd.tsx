@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useRef, useEffect, useCallback } from "react";
-import { Plus, X, Bold, Italic, List, ListOrdered, Tag } from "lucide-react";
+import { Plus, X, Bold, Italic, List, ListOrdered, Tag, Star } from "lucide-react";
 
 // --- Type Definitions ---
 interface AddOnInput {
@@ -144,7 +144,15 @@ export default function ProductAdd() {
 
   return (
     <div className="w-full px-4 sm:px-6">
-      <h1 className="text-2xl font-bold pt-8 pb-8">Add A Product</h1>
+       <div className="mb-8 mt-4">
+        <h1 className="text-[12px] tracking-[0.3em] font-bold uppercase text-gray-500 flex items-center gap-2">
+          <Star size={14} className="fill-amber-400 text-amber-400" />
+          Add a New Product
+        </h1>
+        <p className="text-[10px] text-gray-400 uppercase mt-2 tracking-widest">
+          Add a new product to the Stock
+        </p>
+      </div>
       
       <form onSubmit={handleSubmit} className="flex flex-col lg:flex-row gap-6 items-start">
         <div className="w-full lg:w-1/2 space-y-5">

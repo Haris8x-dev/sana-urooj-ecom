@@ -1,15 +1,19 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import {
-  ShoppingBag,
-  Box,
-  Users,
-  Settings,
-  ChevronLeft,
-  ChevronRight,
+import { 
+  ShoppingBag, 
+  Box, 
+  Users, 
+  Settings, 
+  ChevronLeft, 
+  Menu,
+  ClipboardList,
+  ArrowRightFromLine,
+  PlayCircle,
+  Image as ImageIcon
 } from "lucide-react";
-
+import { motion, AnimatePresence } from "framer-motion";
 
 /* ---------- TYPES ---------- */
 export type AdminView =
@@ -20,47 +24,42 @@ export type AdminView =
   | "UsersManagement"
   | "HeroVideoEdit"
   | "BottomCarousalEdit"
-    "FeaturedCategory";
+  | "FeaturedCategory"
+  | "Orders";
 
 /* ---------- MENU ---------- */
 const MENU_ITEMS = [
   {
-    heading: "Products",
+    heading: "Inventory",
     icon: ShoppingBag,
     options: [
       { name: "Add New Product", view: "ProductAdd" as AdminView },
-      { name: "Edit / Manage Products", view: "ProductEdit" as AdminView },
+      { name: "Manage Products", view: "ProductEdit" as AdminView },
     ],
   },
   {
-    heading: "Categories",
+    heading: "Collections",
     icon: Box,
     options: [
-      { name: "Add New Category", view: "CategoryAdd" as AdminView },
-      { name: "Edit / Manage Categories", view: "CategoryEdit" as AdminView },
-      { name: "Manage F.Category", view: "FeaturedCategory" as AdminView },
+      { name: "New Category", view: "CategoryAdd" as AdminView },
+      { name: "Categories List", view: "CategoryEdit" as AdminView },
+      { name: "Featured Picks", view: "FeaturedCategory" as AdminView },
     ],
   },
   {
-    heading: "Site Assets",
-    icon: Settings,
+    heading: "Visuals",
+    icon: PlayCircle,
     options: [
       { name: "Hero Video", view: "HeroVideoEdit" as AdminView },
-      { name: "Bottom Carousal", view: "BottomCarousalEdit" as AdminView },
+      { name: "Carousel Assets", view: "BottomCarousalEdit" as AdminView },
     ],
   },
   {
-    heading: "User Accounts",
+    heading: "Customers",
     icon: Users,
     options: [
-      { name: "Manage Users", view: "UsersManagement" as AdminView },
-    ],
-  },
-  {
-    heading: "Orders",
-    icon: Users,
-    options: [
-      { name: "View Orders", view: "Orders" as AdminView },
+      { name: "Orders History", view: "Orders" as AdminView },
+      { name: "Account Access", view: "UsersManagement" as AdminView },
     ],
   },
 ];
@@ -70,121 +69,145 @@ interface SidePanelProps {
   onViewChange: (view: AdminView) => void;
 }
 
-export default function SidePanel({
-  currentView,
-  onViewChange,
-}: SidePanelProps) {
-  // 1. Initialize based on screen size (default true for SSR, then adjusted in useEffect)
+export default function SidePanel({ currentView, onViewChange }: SidePanelProps) {
   const [isOpen, setIsOpen] = useState(true);
 
   useEffect(() => {
-    // Set initial state based on window width
     const handleResize = () => {
-      if (window.innerWidth < 1024) {
-        setIsOpen(false);
-      } else {
-        setIsOpen(true);
-      }
+      setIsOpen(window.innerWidth >= 1024);
     };
-
-    // Run on mount
     handleResize();
-
-    // Optional: Update on window resize
     window.addEventListener("resize", handleResize);
     return () => window.removeEventListener("resize", handleResize);
   }, []);
 
-  // 2. Function to handle menu clicks
   const handleItemClick = (view: AdminView) => {
     onViewChange(view);
-    
-    // Auto-close if on mobile/tablet screen
-    if (window.innerWidth < 1024) {
-      setIsOpen(false);
-    }
+    if (window.innerWidth < 1024) setIsOpen(false);
   };
 
   return (
-    <div className="relative h-full">
-      {/* PANEL */}
-      <aside
-        className={`
-          relative h-full bg-white
-          border-r border-gray-200
-          transition-all duration-300 ease-in-out
-          overflow-hidden
-          ${isOpen ? "w-64 translate-x-0" : "w-0 -translate-x-full"}
-        `}
+    <>
+      {/* Mobile Overlay */}
+      <AnimatePresence>
+        {isOpen && (
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => setIsOpen(false)}
+            className="fixed inset-0 bg-black/20 backdrop-blur-sm z-[55] lg:hidden"
+          />
+        )}
+      </AnimatePresence>
+
+      <motion.aside
+        initial={false}
+        animate={{ 
+          width: isOpen ? "280px" : "0px",
+          x: isOpen ? 0 : -20 
+        }}
+        transition={{ type: "spring", damping: 20, stiffness: 100 }}
+        className={`fixed lg:relative h-full bg-white z-[60] border-r border-gray-100 flex flex-col shadow-2xl lg:shadow-none overflow-hidden pt-28`}
       >
-        <div className="w-64">
-          {/* Header */}
-          <div className="pt-32 p-6 border-b border-gray-200">
-            <h1 className="text-xl font-bold tracking-wider text-gray-900">
-              ADMIN PANEL
+        {/* Header Section */}
+        <div className="p-8 border-b border-gray-50 flex items-center justify-between min-w-[280px] ">
+          <div>
+            <h1 className="text-xl font-serif italic tracking-tight text-gray-900">
+              Sana <span className="text-amber-400">Urooj</span>
             </h1>
-            <p className="text-xs text-gray-500 mt-1">Store Management</p>
+            <p className="text-[9px] font-bold uppercase tracking-[0.3em] text-gray-400">
+              Studio Manager
+            </p>
           </div>
+          <button 
+            onClick={() => setIsOpen(false)}
+            className="lg:hidden p-2 hover:bg-gray-50 rounded-full text-gray-400"
+          >
+            <ChevronLeft size={20} />
+          </button>
+        </div>
 
-          {/* Navigation */}
-          <nav className="p-4 space-y-6">
-            {MENU_ITEMS.map((group, index) => (
-              <div key={index}>
-                <div className="flex items-center text-xs font-bold uppercase text-gray-500 mb-3 mt-4 px-3">
-                  {React.createElement(group.icon, {
-                    size: 14,
-                    className: "mr-2",
-                  })}
+        {/* Scrollable Navigation */}
+        <nav className="flex-1 overflow-y-auto py-3 px-4 no-scrollbar min-w-[280px]">
+          {MENU_ITEMS.map((group, groupIdx) => (
+            <div key={groupIdx} className="mb-10">
+              <div className="flex items-center gap-3 px-4 mb-4">
+                <div className="w-1 h-1 bg-amber-400 rounded-full" />
+                <span className="text-[10px] uppercase font-bold tracking-[0.4em] text-gray-300">
                   {group.heading}
-                </div>
+                </span>
+              </div>
 
-                <div className="space-y-2">
-                  {group.options.map((item) => (
+              <div className="space-y-1">
+                {group.options.map((item) => {
+                  const isActive = currentView === item.view;
+                  return (
                     <button
                       key={item.view}
                       onClick={() => handleItemClick(item.view)}
-                      className="w-full text-left px-3 pl-8 cursor-pointer py-2 text-sm text-gray-700 transition-colors duration-200 hover:text-gray-900 relative group"
+                      className={`w-full group relative flex items-center justify-between px-4 py-3 rounded-xl transition-all duration-300 ${
+                        isActive 
+                          ? "bg-amber-50/50 text-gray-900" 
+                          : "text-gray-500 hover:text-gray-900 hover:bg-gray-50"
+                      }`}
                     >
-                      <span className="relative inline-block">
+                      <span className={`text-[11px] font-bold uppercase tracking-[0.15em] transition-all ${
+                        isActive ? "translate-x-1" : "group-hover:translate-x-1"
+                      }`}>
                         {item.name}
-                        {currentView === item.view && (
-                          <span className="absolute left-0 right-0 -bottom-1 h-0.5 bg-amber-400"></span>
-                        )}
-                        {currentView !== item.view && (
-                          <span className="absolute left-0 -bottom-1 h-0.5 bg-amber-300 w-0 group-hover:w-full transition-all duration-300 ease-out"></span>
-                        )}
                       </span>
+                      
+                      {isActive && (
+                        <motion.div 
+                          layoutId="activePill"
+                          className="absolute left-0 w-1 h-6 bg-amber-400 rounded-r-full"
+                        />
+                      )}
+                      
+                      {isActive ? (
+                        <ArrowRightFromLine size={14} className="text-amber-400 animate-pulse" />
+                      ) : (
+                        <div className="w-1 h-1 bg-gray-200 rounded-full opacity-0 group-hover:opacity-100 transition-opacity" />
+                      )}
                     </button>
-                  ))}
-                </div>
+                  );
+                })}
               </div>
-            ))}
-          </nav>
-        </div>
-      </aside>
+            </div>
+          ))}
+        </nav>
 
-      {/* TOGGLE BUTTON */}
-      <button
-        onClick={() => setIsOpen((prev) => !prev)}
-        className={`
-          absolute top-1/2 -translate-y-1/2
-          ${isOpen ? "left-64" : "left-0"}
-          z-50
-          w-6 h-16
-          flex items-center justify-center
-          border border-gray-300 rounded-r-md
-          bg-white
-          hover:bg-gray-50
-          transition-all duration-300
-          shadow-sm
-        `}
-      >
-        {isOpen ? (
-          <ChevronLeft size={16} className="text-gray-600" />
-        ) : (
-          <ChevronRight size={16} className="text-gray-600" />
-        )}
-      </button>
-    </div>
+        {/* Support Section */}
+        <div className="p-6 mt-auto border-t border-gray-50 bg-[#fafafa]/50 min-w-[280px]">
+          <div className="flex items-center gap-4 px-2">
+            <div className="w-8 h-8 rounded-full bg-amber-100 flex items-center justify-center text-amber-600 font-serif italic text-sm border border-amber-200">
+              A
+            </div>
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-widest text-gray-900">Verified Admin</p>
+              <p className="text-[9px] text-gray-400 font-mono tracking-tighter italic">system_root_v2</p>
+            </div>
+          </div>
+        </div>
+      </motion.aside>
+
+      {/* Floating Toggle Button for when closed */}
+      {!isOpen && (
+        <motion.button
+          initial={{ opacity: 0, x: -20 }}
+          animate={{ opacity: 1, x: 0 }}
+          onClick={() => setIsOpen(true)}
+          className="fixed left-6 top-20 z-[70] p-4 bg-white shadow-xl rounded-full border border-gray-100 text-gray-900 hover:scale-110 transition-transform"
+        >
+          <Menu size={20} />
+        </motion.button>
+      )}
+
+      <style jsx global>{`
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+      `}</style>
+    </>
   );
 }
