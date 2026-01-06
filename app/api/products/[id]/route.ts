@@ -1,61 +1,110 @@
-// app/api/products/[id]/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { connectToDatabase } from "@/lib/db/db";
-import Product from "@/lib/models/products/product";
+import Product, { iProductSize } from "@/lib/models/products/product";
 import { imagekit } from "@/lib/service/imagekit";
 import { Types } from "mongoose";
+
+const MAX_IMAGES = 12;
+const VIDEO_FIELD_NAME = "videoFile";
+const VALID_GENDERS = ['Male', 'Female'];
 
 /** Simple server log */
 function log(...args: any[]) {
   console.log("[/api/products/[id]]", ...args);
 }
 
-/** Delete a single image from ImageKit safely */
-async function deleteImagekitFileIfPossible(img: any) {
+/** Delete a single image/video from ImageKit safely */
+async function deleteImagekitFileIfPossible(media: any) {
   try {
-    if (img && typeof img === "object" && img.fileId) {
-      await imagekit.deleteFile(img.fileId);
+    if (media && typeof media === "object" && media.fileId) {
+      await imagekit.deleteFile(media.fileId);
     }
   } catch (err) {
     log("imagekit deleteFile failed:", err);
   }
 }
 
-/* ---------- GET single product ---------- */
-export async function GET(req: NextRequest, { params }: { params: any }) {
+
+/* ---------- GET: Fetch Product (Includes totalPrice from DB) ---------- */
+export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const resolvedParams = await params;
-    const id = resolvedParams.id as string;
-    log("GET called with id:", id);
+    const { id } = await params;
 
     if (!id || !Types.ObjectId.isValid(id)) {
-      return NextResponse.json({ error: "Invalid product id" }, { status: 400 });
+      return NextResponse.json({ error: "Invalid product id format" }, { status: 400 });
     }
 
     await connectToDatabase();
 
-    const product = await Product.findById(id);
+    // We use aggregate to populate reviews with user data
+    const productArr = await Product.aggregate([
+      { $match: { _id: new Types.ObjectId(id) } },
+      {
+        $lookup: {
+          from: 'users',
+          localField: 'reviews.userId',
+          foreignField: '_id',
+          as: 'populatedUsers'
+        }
+      },
+      {
+        $project: {
+          title: 1,
+          description: 1,
+          images: 1,
+          video: 1,
+          price: 1,      // Original price (Crossed out price on UI)
+          totalPrice: 1, // Pre-calculated final price (from Schema)
+          category: 1,
+          gender: 1,
+          badges: 1,
+          sizes: 1,
+          priority: 1,
+          cartLimit: 1,
+          createdAt: 1,
+          updatedAt: 1,
+          reviews: {
+            $map: {
+              input: "$reviews",
+              as: "review",
+              in: {
+                _id: "$$review._id",
+                userId: "$$review.userId",
+                rating: "$$review.rating",
+                comment: "$$review.comment",
+                createdAt: "$$review.createdAt",
+                updatedAt: "$$review.updatedAt",
+                user: {
+                  $arrayElemAt: [
+                    "$populatedUsers",
+                    { $indexOfArray: ["$populatedUsers._id", "$$review.userId"] }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    ]);
+
+    const product = productArr[0];
     if (!product) {
       return NextResponse.json({ error: "Product not found" }, { status: 404 });
     }
 
     return NextResponse.json({ product }, { status: 200 });
+    
   } catch (err) {
     log("GET error:", err);
-    return NextResponse.json({ error: "Failed to fetch product" }, { status: 500 });
+    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
   }
 }
 
-/* ---------- PATCH (update product) ---------- */
+/* ---------- PATCH: Update Product (Maintains Original Price in DB) ---------- */
 export async function PATCH(req: NextRequest, { params }: { params: any }) {
   try {
     const resolvedParams = await params;
     const id = resolvedParams.id as string;
-    log("PATCH called with id:", id);
-
-    if (!id || !Types.ObjectId.isValid(id)) {
-      return NextResponse.json({ error: "Invalid product id" }, { status: 400 });
-    }
 
     await connectToDatabase();
     const existing = await Product.findById(id);
@@ -63,133 +112,125 @@ export async function PATCH(req: NextRequest, { params }: { params: any }) {
 
     const contentType = req.headers.get("content-type") || "";
     const updateData: any = {};
+    let imagesToSave = existing.images.slice(); 
 
     if (contentType.includes("multipart/form-data")) {
       const form = await req.formData();
-      const title = form.get("title") as string | null;
-      const description = form.get("description") as string | null;
-      const priceRaw = form.get("price") as string | null;
-      const price = priceRaw ? Number(priceRaw) : undefined;
-      const category = form.get("category") as string | null;
-      const removeCategory = form.get("removeCategory") === "true"; // NEW: Check for category removal
-      const quantityRaw = form.get("quantity") as string | null;
-      const quantity = quantityRaw ? Number(quantityRaw) : undefined;
-      const files = form.getAll("images") as File[];
-      const replaceIndexes = JSON.parse((form.get("replaceIndexes") as string) || "[]") as number[];
-      const deleteIndexes = JSON.parse((form.get("deleteIndexes") as string) || "[]") as number[];
+      
+      const title = form.get("title");
+      const description = form.get("description");
+      const priceRaw = form.get("price");
+      const genderStr = form.get("gender");
+      const cartLimitStr = form.get("cartLimit");
+      const category = form.get("category");
+      const removeCategory = form.get("removeCategory") === "true";
+      const priorityStr = form.get("priority"); // Extracted priority
+      
+      const badgeActiveStr = form.get("badgeActive");
+      const badgeAmountStr = form.get("badgeAmount");
+
+      // Save the raw base price to DB
+      if (priceRaw) updateData.price = Number(priceRaw);
+
+      // Handle Priority
+      if (priorityStr !== null) {
+        updateData.priority = priorityStr === "" ? "" : Number(priorityStr);
+      }
+
+      if (badgeActiveStr !== null || badgeAmountStr !== null) {
+          updateData.badges = {
+              saveRs: {
+                  active: badgeActiveStr !== null ? badgeActiveStr === "true" : existing.badges.saveRs.active,
+                  amount: badgeAmountStr !== null ? Number(badgeAmountStr) : existing.badges.saveRs.amount
+              }
+          };
+      }
 
       if (title) updateData.title = title;
       if (description) updateData.description = description;
-      if (price !== undefined && !Number.isNaN(price)) updateData.price = price;
-      if (quantity !== undefined && !Number.isNaN(quantity)) updateData.quantity = quantity;
-      
-      // NEW: Handle category removal or update
-      if (removeCategory) {
-        updateData.category = null; // Remove category
-      } else if (category) {
-        updateData.category = category; // Set new category
+
+      if (removeCategory) updateData.category = null;
+      else if (category) updateData.category = category;
+
+      if (genderStr) {
+          const normalized = (genderStr as string).charAt(0).toUpperCase() + (genderStr as string).slice(1).toLowerCase();
+          if (VALID_GENDERS.includes(normalized)) updateData.gender = normalized;
+      }
+      if (cartLimitStr) updateData.cartLimit = parseInt(cartLimitStr as string);
+
+      // Media Handling
+      const videoFile = form.get(VIDEO_FIELD_NAME) as File | null;
+      const deleteVideo = form.get("deleteVideo") === "true";
+      if (deleteVideo) {
+          await deleteImagekitFileIfPossible(existing.video);
+          updateData.video = null;
+      } else if (videoFile && videoFile.size > 0) {
+          const buffer = Buffer.from(await videoFile.arrayBuffer());
+          const uploaded = await imagekit.upload({ file: buffer, fileName: `v-${Date.now()}`, folder: "/products/videos" });
+          await deleteImagekitFileIfPossible(existing.video);
+          updateData.video = { url: uploaded.url, fileId: uploaded.fileId };
       }
 
-      let images = existing.images.slice();
+      // Image Logic
+      const deleteIndexes = JSON.parse((form.get("deleteIndexes") as string) || "[]") as number[];
+      const replaceIndexes = JSON.parse((form.get("replaceIndexes") as string) || "[]") as number[];
+      const imageFiles = form.getAll("images") as File[];
 
-      // Delete images
-      for (const idx of deleteIndexes) {
-        if (images[idx]) {
-          await deleteImagekitFileIfPossible(images[idx]);
-          images.splice(idx, 1);
-        }
+      for (const idx of deleteIndexes.sort((a, b) => b - a)) {
+          if (imagesToSave[idx]) {
+              await deleteImagekitFileIfPossible(imagesToSave[idx]);
+              imagesToSave.splice(idx, 1);
+          }
       }
-
-      // Replace images
       for (let i = 0; i < replaceIndexes.length; i++) {
-        const file = files[i];
-        const idx = replaceIndexes[i];
-        if (!file) continue;
-
-        const buffer = Buffer.from(await file.arrayBuffer());
-        const uploaded = await imagekit.upload({ file: buffer, fileName: `${Date.now()}-${file.name}` });
-
-        if (images[idx]) await deleteImagekitFileIfPossible(images[idx]);
-        images[idx] = { url: uploaded.url, fileId: uploaded.fileId };
+          const file = imageFiles[i];
+          const idx = replaceIndexes[i];
+          if (file) {
+              const buffer = Buffer.from(await file.arrayBuffer());
+              const uploaded = await imagekit.upload({ file: buffer, fileName: `img-${Date.now()}`, folder: "/products/images" });
+              await deleteImagekitFileIfPossible(imagesToSave[idx]);
+              imagesToSave[idx] = { url: uploaded.url, fileId: uploaded.fileId };
+          }
       }
-
-      // Append new images
-      const appendStartIndex = replaceIndexes.length;
-      for (let i = appendStartIndex; i < files.length; i++) {
-        if (images.length >= 4) break;
-        const file = files[i];
-        const buffer = Buffer.from(await file.arrayBuffer());
-        const uploaded = await imagekit.upload({ file: buffer, fileName: `${Date.now()}-${file.name}` });
-        images.push({ url: uploaded.url, fileId: uploaded.fileId });
+      const appendFiles = imageFiles.slice(replaceIndexes.length);
+      for (const file of appendFiles) {
+          if (imagesToSave.length >= MAX_IMAGES) break;
+          const buffer = Buffer.from(await file.arrayBuffer());
+          const uploaded = await imagekit.upload({ file: buffer, fileName: `img-${Date.now()}`, folder: "/products/images" });
+          imagesToSave.push({ url: uploaded.url, fileId: uploaded.fileId });
       }
+      updateData.images = imagesToSave;
 
-      if (images.length === 0) {
-        return NextResponse.json({ error: "At least 1 image required" }, { status: 400 });
-      }
-
-      updateData.images = images;
+      // Handle Sizes if provided in FormData
+      const sizesStr = form.get("sizes");
+      if (sizesStr) updateData.sizes = JSON.parse(sizesStr as string);
 
     } else {
-      // JSON updates
-      const body = (await req.json().catch(() => ({}))) as any;
-      const { title, description, price, quantity, deleteImages, replaceImages, removeCategory } = body; // NEW: Added removeCategory
-
-      if (title !== undefined) updateData.title = title;
-      if (description !== undefined) updateData.description = description;
-      if (price !== undefined && !Number.isNaN(Number(price))) updateData.price = Number(price);
-      if (quantity !== undefined && !Number.isNaN(Number(quantity))) updateData.quantity = Number(quantity);
-      
-      // NEW: Handle category removal or update
-      if (removeCategory) {
-        updateData.category = null; // Remove category
-      } else if (body.category) {
-        updateData.category = body.category; // Set new category
-      }
-
-      let currentImages = existing.images.slice();
-
-      // Delete images
-      if (Array.isArray(deleteImages)) {
-        for (const idx of deleteImages) {
-          if (currentImages[idx]) {
-            await deleteImagekitFileIfPossible(currentImages[idx]);
-            currentImages.splice(idx, 1);
-          }
-        }
-      }
-
-      // Replace images
-      if (Array.isArray(replaceImages)) {
-        for (const item of replaceImages) {
-          const { idx, url, fileId } = item;
-          if (!currentImages[idx]) continue;
-          await deleteImagekitFileIfPossible(currentImages[idx]);
-          currentImages[idx] = { url, fileId };
-        }
-      }
-
-      if (currentImages.length === 0) {
-        return NextResponse.json({ error: "At least 1 image required" }, { status: 400 });
-      }
-
-      updateData.images = currentImages;
+      const body = await req.json();
+      if (body.price !== undefined) updateData.price = Number(body.price);
+      if (body.priority !== undefined) updateData.priority = body.priority === "" ? "" : Number(body.priority);
+      if (body.badges) updateData.badges = body.badges;
+      if (body.title) updateData.title = body.title;
+      if (body.description) updateData.description = body.description;
+      if (body.gender) updateData.gender = body.gender;
+      if (body.category !== undefined) updateData.category = body.category;
+      if (body.sizes) updateData.sizes = body.sizes;
     }
 
-    const updated = await Product.findByIdAndUpdate(id, updateData, { new: true });
+    const updated = await Product.findByIdAndUpdate(id, updateData, { new: true, runValidators: true });
     return NextResponse.json({ message: "Product updated", product: updated }, { status: 200 });
 
-  } catch (err) {
-    console.log("PATCH error:", err);
-    return NextResponse.json({ error: "Failed to update product" }, { status: 500 });
+  } catch (err: any) {
+    console.error("PATCH error:", err);
+    return NextResponse.json({ error: err.message || "Update failed" }, { status: 500 });
   }
 }
 
-/* ---------- DELETE product ---------- */
+/* ---------- DELETE ---------- */
 export async function DELETE(req: NextRequest, { params }: { params: any }) {
   try {
     const resolvedParams = await params;
     const id = resolvedParams.id as string;
-    log("DELETE called with id:", id);
 
     if (!id || !Types.ObjectId.isValid(id)) {
       return NextResponse.json({ error: "Invalid product id" }, { status: 400 });
@@ -199,10 +240,9 @@ export async function DELETE(req: NextRequest, { params }: { params: any }) {
     const product = await Product.findById(id);
     if (!product) return NextResponse.json({ error: "Product not found" }, { status: 404 });
 
-    for (const img of product.images || []) {
-      await deleteImagekitFileIfPossible(img);
-    }
-
+    for (const img of product.images || []) await deleteImagekitFileIfPossible(img);
+    if (product.video) await deleteImagekitFileIfPossible(product.video);
+    
     await Product.findByIdAndDelete(id);
     return NextResponse.json({ message: "Product deleted" }, { status: 200 });
 

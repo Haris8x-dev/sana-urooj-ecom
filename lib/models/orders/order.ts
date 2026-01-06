@@ -1,51 +1,35 @@
-import mongoose, { Schema, model } from "mongoose";
+import mongoose, { Schema, model, models } from "mongoose";
 
-export interface iOrder {
-  userId: mongoose.Types.ObjectId;
-  userFullName: string;
-  userEmail: string;
-  items: {
-    product: mongoose.Types.ObjectId;
-    name: string;
-    qty: number;
-    price: number;
-    totalPrice: number;
-  }[];
-  finalPrice: number;
-  paymentInfo: {
-    stripePaymentId: string;
-    status: "paid" | "failed";
-    method: "stripe";
-  };
-  status: "pending" | "completed";
-  createdAt: Date;
-  updatedAt: Date;
-}
-
-const orderSchema = new Schema<iOrder>(
+const OrderSchema = new Schema(
   {
-    userId: { type: Schema.Types.ObjectId, ref: "User", required: true },
-    userFullName: { type: String, required: true },
-    userEmail: { type: String, required: true },
+    customer: {
+      fullName: { type: String, required: true },
+      email: { type: String },
+      contactNumber: { type: String, required: true },
+      whatsappNumber: { type: String, required: true },
+      message: { type: String },
+    },
     items: [
       {
-        product: { type: Schema.Types.ObjectId, ref: "Product", required: true },
-        name: { type: String, required: true },
-        qty: { type: Number, required: true },
-        price: { type: Number, required: true },
-        totalPrice: { type: Number, required: true },
+        productId: { type: String, required: true },
+        title: { type: String, required: true },
+        price: { type: Number, required: true }, // Price of a single unit
+        quantity: { type: Number, required: true },
+        itemTotal: { type: Number, required: true }, // (price * quantity)
+        selectedSize: { type: String, required: true },
+        image: { type: String },
       },
     ],
-    finalPrice: { type: Number, required: true },
-    paymentInfo: {
-      stripePaymentId: { type: String, required: true },
-      status: { type: String, enum: ["paid", "failed"], required: true },
-      method: { type: String, enum: ["stripe"], default: "stripe" },
+    totalAmount: { type: Number, required: true }, // Final price of all items combined
+    paymentMethod: { type: String, default: "Cash on Delivery" },
+    orderStatus: { 
+      type: String, 
+      enum: ["pending", "packed", "shipped", "delivered", "cancelled"], 
+      default: "pending" 
     },
-    status: { type: String, enum: ["pending", "completed"], default: "pending" },
   },
   { timestamps: true }
 );
 
-const Order = mongoose.models?.Order || model<iOrder>("Order", orderSchema);
+const Order = models.Order || model("Order", OrderSchema);
 export default Order;

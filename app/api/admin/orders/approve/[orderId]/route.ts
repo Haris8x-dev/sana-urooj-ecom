@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { connectToDatabase } from "@/lib/db/db";
-import Order from "@/lib/models/orders/order";
+import Order from "@/lib/models/orders/Order";
 import User from "@/lib/models/users/user";
 import mongoose from "mongoose";
 

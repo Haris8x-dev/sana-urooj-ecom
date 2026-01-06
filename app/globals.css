@@ -1,1 +1,60 @@
+@import url("https://fonts.googleapis.com/css2?family=Figtree:ital,wght@0,300..900;1,300..900&display=swap");
 @import "tailwindcss";
+
+:root {
+  /* Font Variable */
+  --primaryfont: 'Georgia', serif;
+
+  /* Color Variable (Tailwind amber-300) */
+  --primary-color: #facc33;
+  
+}
+
+
+
+/* Luxury Headings */
+ h2, h3, .font-serif-italic {
+  font-family: var(--primaryfont);
+}
+
+HTML, body {
+    overflow-x: hidden;
+}
+
+/* hide scrollbar for WebKit browsers */
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
+}
+
+@keyframes circle-loader {
+  from {
+    stroke-dashoffset: var(--circumference, 63);
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+.navItems {
+  font-family: "Figtree", sans-serif;
+  font-weight: normal;
+  font-style: normal;
+}
+
+
+@layer utilities {
+  @keyframes pulse-slow {
+    0%, 100% {
+      border-color: rgba(250, 204, 51, 1);
+      box-shadow: 0 0 15px rgba(250, 204, 51, 0.4);
+    }
+    50% {
+      border-color: rgba(250, 204, 51, 0.5);
+      box-shadow: 0 0 5px rgba(250, 204, 51, 0.7);
+    }
+  }
+
+  .animate-pulse-slow {
+    animation: pulse-slow 4s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  }
+}

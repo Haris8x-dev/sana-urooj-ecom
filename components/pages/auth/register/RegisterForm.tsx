@@ -31,69 +31,54 @@ export default function RegisterForm({ onSuccess, switchView }: RegisterFormProp
       });
 
       const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || 'Registration failed.');
-      }
-
-      // Success: Switch to OTP form
+      if (!response.ok) throw new Error(data.error || 'Registration failed.');
       onSuccess(formData.email, formData.userName);
-
     } catch (err: any) {
-      console.error('Registration API Error:', err.message);
-      setError(err.message || 'An unexpected error occurred.');
-    } finally {
+      setError(err.message);
       setIsLoading(false);
     }
   };
 
   return (
-    <form onSubmit={handleSubmit} className="w-full space-y-4">
-      <h2 className="text-2xl font-bold text-center text-gray-800">New Account</h2>
+    <form onSubmit={handleSubmit} className="space-y-6">
+      {error && <div className="p-3 bg-red-50 text-[10px] uppercase tracking-widest text-red-600 text-center">{error}</div>}
 
-      {error && <p className="text-red-500 bg-red-100 p-2 rounded text-sm text-center">{error}</p>}
-
-      {['userName', 'email', 'password'].map((key) => (
-        <div key={key}>
-          <label htmlFor={key} className="block text-sm font-medium text-gray-700 capitalize">
-            {key === 'userName' ? 'Username' : key.charAt(0).toUpperCase() + key.slice(1)}
-          </label>
-          <input
-            id={key}
-            name={key}
-            type={key === 'password' ? 'password' : 'text'}
-            required
-            value={(formData as any)[key]}
-            onChange={handleChange}
-            className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-          />
-        </div>
-      ))}
+      <div className="space-y-5">
+        {[
+          { label: 'Name', name: 'userName', type: 'text', ph: 'Full Name' },
+          { label: 'Email', name: 'email', type: 'email', ph: 'name@example.com' },
+          { label: 'Security Password', name: 'password', type: 'password', ph: '••••••••' }
+        ].map((field) => (
+          <div key={field.name} className="group">
+            <label className="text-[9px] uppercase tracking-[0.2em] text-gray-400 group-focus-within:text-black transition-colors">{field.label}</label>
+            <input
+              type={field.type} name={field.name} required placeholder={field.ph} onChange={handleChange}
+              className="w-full bg-transparent border-b border-gray-200 py-3 text-sm outline-none focus:border-black transition-all placeholder:text-gray-200 font-light"
+            />
+          </div>
+        ))}
+      </div>
 
       <button
         type="submit"
         disabled={isLoading}
-        className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50"
+        className="w-full bg-black text-white py-4 text-[10px] font-bold uppercase tracking-[0.4em] hover:bg-gray-800 transition-all disabled:opacity-50 mt-4"
       >
-        {isLoading ? 'Sending OTP...' : 'Register & Verify'}
+        {isLoading ? 'Processing...' : 'Register Account'}
       </button>
 
-      {/* Google Sign-in Button */}
-      <div className="relative my-6">
-        <div className="absolute inset-0 flex items-center">
-          <div className="w-full border-t border-gray-300"></div>
-        </div>
-        <div className="relative flex justify-center text-sm">
-          <span className="px-2 bg-white text-gray-500">Or continue with</span>
-        </div>
+      <div className="relative py-4">
+        <div className="absolute inset-0 flex items-center"><span className="w-full border-t border-gray-100" /></div>
+        <div className="relative flex justify-center text-[9px] uppercase tracking-widest text-gray-300 bg-[#F9F8F6] px-4">Social Access</div>
       </div>
 
       <button
         type="button"
         onClick={() => signIn('google', { callbackUrl: '/' })}
-        className="w-full flex justify-center items-center py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+        className="w-full flex justify-center items-center py-4 border border-gray-200 text-[10px] uppercase tracking-widest gap-3 hover:bg-white transition-all font-medium"
       >
-        Sign in with Google
+        <img src="https://www.svgrepo.com/show/355037/google.svg" className="w-4 h-4" alt="Google" />
+        Google Continuity
       </button>
     </form>
   );

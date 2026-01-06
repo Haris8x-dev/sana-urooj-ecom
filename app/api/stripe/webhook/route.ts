@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import Stripe from "stripe";
 import { connectToDatabase } from "@/lib/db/db";
 import User from "@/lib/models/users/user";
-import Order from "@/lib/models/orders/order";
+import Order from "@/lib/models/orders/Order";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 const endpointSecret = process.env.STRIPE_WEBHOOK_SECRET!;
