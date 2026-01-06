@@ -195,12 +195,11 @@ export default function ProductEdit() {
     }
   };
 
-  // NEW: Video Change Handler
   const handleVideoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
       setNewVideoFile(file);
-      setDeleteVideo(false); // If they upload a new one, we aren't "deleting" to null
+      setDeleteVideo(false); 
     }
   };
 
@@ -229,12 +228,10 @@ export default function ProductEdit() {
       formData.append("cartLimit", cartLimit);
       formData.append("sizes", JSON.stringify(sizes));
       
-      // Images
       formData.append("deleteIndexes", JSON.stringify(deleteIndexes));
       formData.append("replaceIndexes", JSON.stringify(replaceIndexes));
       newFiles.forEach(file => formData.append("images", file));
 
-      // NEW: Video Data (Matches VIDEO_FIELD_NAME in backend)
       if (newVideoFile) {
         formData.append("videoFile", newVideoFile);
       }
@@ -266,7 +263,6 @@ export default function ProductEdit() {
     </div>
   );
 
-  // ... Grid View UI (FilteredProducts Map) - Kept identical to your source ...
   if (!editingProduct) {
     return (
       <div className="p-6 relative">
@@ -292,14 +288,14 @@ export default function ProductEdit() {
 
         <div className="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-4">
           <div className="mb-10">
-        <h1 className="text-[12px] tracking-[0.3em] font-bold uppercase text-gray-500 flex items-center gap-2">
-          <Star size={14} className="fill-amber-400 text-amber-400" />
-          Manage / Edit Current Products
-        </h1>
-        <p className="text-[10px] text-gray-400 uppercase mt-2 tracking-widest">
-          Select from the existing products & Modify its current Values
-        </p>
-      </div>
+            <h1 className="text-[12px] tracking-[0.3em] font-bold uppercase text-gray-500 flex items-center gap-2">
+              <Star size={14} className="fill-amber-400 text-amber-400" />
+              Manage / Edit Current Products
+            </h1>
+            <p className="text-[10px] text-gray-400 uppercase mt-2 tracking-widest">
+              Select from the existing products & Modify its current Values
+            </p>
+          </div>
           <div className="relative w-full md:w-80">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
             <input 
@@ -358,16 +354,18 @@ export default function ProductEdit() {
              </InputGroup>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <InputGroup label="Original Price (Rs)" required>
               <input type="number" value={price} onChange={(e) => setPrice(e.target.value)} className="w-full border border-gray-300 p-2.5 outline-none focus:ring-1 focus:ring-amber-300 transition" required />
             </InputGroup>
             <InputGroup label="Cart Limit" required>
               <input type="number" value={cartLimit} onChange={(e) => setCartLimit(e.target.value)} className="w-full border border-gray-300 p-2.5 outline-none focus:ring-1 focus:ring-amber-300 transition" required />
             </InputGroup>
+            <InputGroup label="Priority (Shop Order)">
+              <input type="number" value={priority} onChange={(e) => setPriority(e.target.value)} className="w-full border border-gray-300 p-2.5 outline-none focus:ring-1 focus:ring-amber-300 transition" placeholder="e.g. 10" />
+            </InputGroup>
           </div>
 
-          {/* ... Categories, Gender, Sizes (Kept from original) ... */}
           <div className="grid grid-cols-2 gap-4">
             <InputGroup label="Category">
               <select value={category || ""} onChange={(e) => setCategory(e.target.value)} className="w-full border border-gray-300 p-2.5 outline-none bg-white cursor-pointer">
@@ -411,10 +409,8 @@ export default function ProductEdit() {
             </div>
           </InputGroup>
 
-          {/* NEW: VIDEO MANAGEMENT SECTION */}
           <InputGroup label="Video Management">
             <div className="flex flex-col md:flex-row gap-6 items-center">
-               {/* Existing Video Preview */}
                <div className="w-full md:w-1/2 aspect-video bg-gray-100 border border-gray-200 relative overflow-hidden group">
                  { (editingProduct.video && !deleteVideo) ? (
                    <>
@@ -434,7 +430,6 @@ export default function ProductEdit() {
                  {deleteVideo && <div className="absolute inset-0 bg-red-50/80 flex items-center justify-center text-red-600 font-bold text-[10px] uppercase tracking-widest">Marked for Deletion</div>}
                </div>
 
-               {/* Video Upload Control */}
                <div className="w-full md:w-1/2 space-y-3">
                   <p className="text-[9px] text-gray-400 uppercase font-bold leading-tight">
                     {newVideoFile ? `Selected: ${newVideoFile.name}` : "Upload new video to replace or add to this product."}

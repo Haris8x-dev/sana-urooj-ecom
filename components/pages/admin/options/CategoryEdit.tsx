@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef, useMemo } from "react";
 import Image from "next/image";
 import { 
   Plus, X, Bold, Italic, List, ListOrdered, 
-  Loader2, ArrowLeft, Save, Trash2, Upload, AlertCircle, Search 
+  Loader2, ArrowLeft, Save, Trash2, Upload, AlertCircle, Search, Star
 } from "lucide-react";
 
 // --- Types ---
@@ -210,7 +210,15 @@ export default function CategoryEdit() {
     return (
       <div className="p-6">
         <div className="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-4">
-          <h1 className="text-sm tracking-widest font-bold uppercase text-gray-500">Select Category to Edit</h1>
+        <div className="mb-2 mt-4">
+        <h1 className="text-[12px] tracking-[0.3em] font-bold uppercase text-gray-500 flex items-center gap-2">
+          <Star size={14} className="fill-amber-400 text-amber-400" />
+          Edit / Manage the current Categories
+        </h1>
+        <p className="text-[10px] text-gray-400 uppercase mt-2 tracking-widest">
+         Edit the current Categories to change their current fields
+        </p>
+      </div>
           
           <div className="relative w-full md:w-80">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />

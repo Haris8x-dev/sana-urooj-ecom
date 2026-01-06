@@ -124,12 +124,18 @@ export async function PATCH(req: NextRequest, { params }: { params: any }) {
       const cartLimitStr = form.get("cartLimit");
       const category = form.get("category");
       const removeCategory = form.get("removeCategory") === "true";
+      const priorityStr = form.get("priority"); // Extracted priority
       
       const badgeActiveStr = form.get("badgeActive");
       const badgeAmountStr = form.get("badgeAmount");
 
       // Save the raw base price to DB
       if (priceRaw) updateData.price = Number(priceRaw);
+
+      // Handle Priority
+      if (priorityStr !== null) {
+        updateData.priority = priorityStr === "" ? "" : Number(priorityStr);
+      }
 
       if (badgeActiveStr !== null || badgeAmountStr !== null) {
           updateData.badges = {
@@ -195,21 +201,27 @@ export async function PATCH(req: NextRequest, { params }: { params: any }) {
       }
       updateData.images = imagesToSave;
 
+      // Handle Sizes if provided in FormData
+      const sizesStr = form.get("sizes");
+      if (sizesStr) updateData.sizes = JSON.parse(sizesStr as string);
+
     } else {
       const body = await req.json();
       if (body.price !== undefined) updateData.price = Number(body.price);
+      if (body.priority !== undefined) updateData.priority = body.priority === "" ? "" : Number(body.priority);
       if (body.badges) updateData.badges = body.badges;
       if (body.title) updateData.title = body.title;
       if (body.description) updateData.description = body.description;
       if (body.gender) updateData.gender = body.gender;
       if (body.category !== undefined) updateData.category = body.category;
+      if (body.sizes) updateData.sizes = body.sizes;
     }
 
     const updated = await Product.findByIdAndUpdate(id, updateData, { new: true, runValidators: true });
     return NextResponse.json({ message: "Product updated", product: updated }, { status: 200 });
 
   } catch (err: any) {
-    log("PATCH error:", err);
+    console.error("PATCH error:", err);
     return NextResponse.json({ error: err.message || "Update failed" }, { status: 500 });
   }
 }

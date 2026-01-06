@@ -13,11 +13,8 @@ import {
   AlertCircle,
   ShoppingBag
 } from "lucide-react";
-import { io } from "socket.io-client";
 import { toast } from "react-toastify";
 
-// Initialize Socket.io (Ensure your env variable is set)
-const socket = io(process.env.NEXT_PUBLIC_SOCKET_URL || "http://localhost:3000");
 
 interface CartItem {
   _id: string;

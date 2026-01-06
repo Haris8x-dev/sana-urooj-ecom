@@ -9,7 +9,8 @@ import {
   RefreshCcw, 
   Save, 
   AlertCircle,
-  X
+  X,
+  Star
 } from "lucide-react";
 
 interface CarousalImage {
@@ -123,9 +124,10 @@ export default function BottomCarousal() {
       {/* Header Section */}
       <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 border-b border-gray-100 pb-6">
         <div>
-          <h1 className="text-sm font-bold uppercase tracking-widest text-gray-800 flex items-center gap-2">
-            <ImageIcon size={18} /> Bottom Carousel Management
-          </h1>
+          <h1 className="text-[12px] tracking-[0.3em] font-bold uppercase text-gray-500 flex items-center gap-2">
+          <Star size={14} className="fill-amber-400 text-amber-400" />
+          Bottom Carousal Management
+        </h1>
           <p className="text-[10px] text-gray-400 uppercase tracking-tighter mt-1">
             Min 1 - Max 5 images. Mobile optimized view enabled.
           </p>
